@@ -320,7 +320,7 @@ const CustomerList = () => {
               <DataTableRow size="mb">
                 <span className="sub-text">email</span>
               </DataTableRow>
-              <DataTableRow size="md">password</DataTableRow>
+              
               <DataTableRow size="md">
                 
                 <span className="sub-text">Phone</span>
@@ -405,42 +405,7 @@ const CustomerList = () => {
         <DataTableRow size="md">
         <span>{item.email}</span>
         </DataTableRow>
-        <DataTableRow size="md">
-  {isEditing === item.id ? (
-    <input
-      type="text"
-      value={item.password}
-      onBlur={() => setIsEditing(null)} // عند فقدان التركيز، يعود للوضع العادي
-      readOnly
-      autoFocus
-      style={{
-        width: '100%',
-        padding: '5px',
-        fontSize: '14px',
-        border: '1px solid #ccc',
-        borderRadius: '5px',
-      }}
-    />
-  ) : (
-    <span
-      onClick={() => setIsEditing(item.id)} // يتحول إلى input عند النقر
-      style={{
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        display: 'block',
-        maxWidth: '200px',
-        cursor: 'pointer',
-        backgroundColor: '#f9f9f9',
-        padding: '5px',
-        borderRadius: '5px',
-      }}
-      title="اضغط للنسخ أو التعديل"
-    >
-      {item.password}
-    </span>
-  )}
-</DataTableRow>
+       
 
 
         <DataTableRow size="lg">
