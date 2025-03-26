@@ -72,6 +72,8 @@ const CustomerList = () => {
       console.error('There was an error with the axios request:', error);
     }
   };
+  const [isEditing, setIsEditing] = useState(null);
+
 
   // استخدام useEffect لاستدعاء الـ API عند تحميل المكون
   useEffect(() => {
@@ -313,19 +315,21 @@ const CustomerList = () => {
                 </div>
               </DataTableRow>
               <DataTableRow>
-                <span className="sub-text">User</span>
+                <span className="sub-text">name</span>
               </DataTableRow>
               <DataTableRow size="mb">
-                <span className="sub-text">Ordered</span>
+                <span className="sub-text">email</span>
               </DataTableRow>
+              <DataTableRow size="md">password</DataTableRow>
               <DataTableRow size="md">
+                
                 <span className="sub-text">Phone</span>
               </DataTableRow>
               <DataTableRow size="lg">
-                <span className="sub-text">Country</span>
+                <span className="sub-text">adresse</span>
               </DataTableRow>
               <DataTableRow size="lg">
-                <span className="sub-text">Last Order</span>
+                <span className="sub-text">role</span>
               </DataTableRow>
               <DataTableRow size="md">
                 <span className="sub-text">Status</span>
@@ -370,83 +374,120 @@ const CustomerList = () => {
             </DataTableHead>
             {/*Head*/}
             {currentItems.length > 0
-              ? currentItems.map((item) => (
-                  <DataTableItem key={item.id}>
-                    <DataTableRow className="nk-tb-col-check">
-                      <div className="custom-control custom-control-sm custom-checkbox notext">
-                        <input
-                          type="checkbox"
-                          className="custom-control-input"
-                          defaultChecked={item.checked}
-                          id={item.id + "uid1"}
-                          key={Math.random()}
-                          onChange={(e) => onSelectChange(e, item.id)}
-                        />
-                        <label className="custom-control-label" htmlFor={item.id + "uid1"}></label>
-                      </div>
-                    </DataTableRow>
-                    <DataTableRow>
-                      <Link to={`${process.env.PUBLIC_URL}/ecommerce/customer-details/${item.id}`}>
-                        <div className="user-card">
-                          <UserAvatar theme={item.avatarBg} text={findUpper(item.name)} image={item.image}></UserAvatar>
-                          <div className="user-info">
-                            <span className="tb-lead">
-                              {item.name} <span className="dot dot-success d-md-none ms-1"></span>
-                            </span>
-                            <span>{item.email}</span>
-                          </div>
-                        </div>
-                      </Link>
-                    </DataTableRow>
-                    <DataTableRow size="mb">
-                      <span className="tb-amount">
-                        {item.balance} <span className="currency">USD</span>
-                      </span>
-                    </DataTableRow>
-                    <DataTableRow size="md">
-                      <span>{item.phone}</span>
-                    </DataTableRow>
-                    <DataTableRow size="lg">
-                      <span>{item.country}</span>
-                    </DataTableRow>
-                    <DataTableRow size="lg">
-                      <span>{item.lastLogin}</span>
-                    </DataTableRow>
-                    <DataTableRow size="md">
-                      <span
-                        className={`tb-status text-${
-                          item.status === "Active" ? "success" : item.status === "Pending" ? "warning" : "danger"
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-                    </DataTableRow>
-                    <DataTableRow className="nk-tb-col-tools">
-  <ul className="nk-tb-actions gx-1">
-    <li className="nk-tb-action-hidden" onClick={() => onEditClick(item.id)}>
-      <button className="btn btn-trigger btn-icon" id={"edit" + item.id}>
-        <Icon name="edit-alt-fill" />
-      </button>
-    </li>
-    {item.status !== "Suspend" && (
-      <li className="nk-tb-action-hidden" onClick={() => suspendUser(item.id)}>
-        <button className="btn btn-trigger btn-icon" id={"suspend" + item.id}>
-          <Icon name="user-cross-fill" />
-        </button>
-      </li>
-    )}
-    <li>
-      <button className="btn btn-icon btn-trigger" onClick={() => toggleDropdown(item.id)}>
-        <Icon name="more-h" />
-      </button>
-    </li>
-  </ul>
+  ? currentItems.map((item) => (
+      <DataTableItem key={item.id}>
+        <DataTableRow className="nk-tb-col-check">
+          <div className="custom-control custom-control-sm custom-checkbox notext">
+            <input
+              type="checkbox"
+              className="custom-control-input"
+              defaultChecked={item.checked}
+              id={item.id + "uid1"}
+              key={Math.random()}
+              onChange={(e) => onSelectChange(e, item.id)}
+            />
+            <label className="custom-control-label" htmlFor={item.id + "uid1"}></label>
+          </div>
+        </DataTableRow>
+        <DataTableRow>
+          <Link to={`${process.env.PUBLIC_URL}/ecommerce/customer-details/${item.id}`}>
+            <div className="user-card">
+              <UserAvatar theme={item.avatarBg} text={findUpper(item.name)} image={item.image}></UserAvatar>
+              <div className="user-info">
+                <span className="tb-lead">
+                  {item.name} <span className="dot dot-success d-md-none ms-1"></span>
+                </span>
+                
+              </div>
+            </div>
+          </Link>
+        </DataTableRow>
+        <DataTableRow size="md">
+        <span>{item.email}</span>
+        </DataTableRow>
+        <DataTableRow size="md">
+  {isEditing === item.id ? (
+    <input
+      type="text"
+      value={item.password}
+      onBlur={() => setIsEditing(null)} // عند فقدان التركيز، يعود للوضع العادي
+      readOnly
+      autoFocus
+      style={{
+        width: '100%',
+        padding: '5px',
+        fontSize: '14px',
+        border: '1px solid #ccc',
+        borderRadius: '5px',
+      }}
+    />
+  ) : (
+    <span
+      onClick={() => setIsEditing(item.id)} // يتحول إلى input عند النقر
+      style={{
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        display: 'block',
+        maxWidth: '200px',
+        cursor: 'pointer',
+        backgroundColor: '#f9f9f9',
+        padding: '5px',
+        borderRadius: '5px',
+      }}
+      title="اضغط للنسخ أو التعديل"
+    >
+      {item.password}
+    </span>
+  )}
 </DataTableRow>
 
-                    
-                  </DataTableItem>
-                ))
-              : null}
+
+        <DataTableRow size="lg">
+          <span>{item.phone}</span>
+        </DataTableRow>
+        <DataTableRow size="lg">
+          <span>{item.adresse}</span>
+        </DataTableRow>
+        <DataTableRow size="lg">
+          <span>{item.role}</span>
+        </DataTableRow>
+        <DataTableRow size="md">
+          <span
+            className={`tb-status text-${
+              item.status === "Active" ? "success" : item.status === "Pending" ? "warning" : "danger"
+            }`}
+          >
+            {item.status}
+          </span>
+        </DataTableRow>
+        <DataTableRow className="nk-tb-col-tools">
+          
+        </DataTableRow>
+        <DataTableRow className="nk-tb-col-tools">
+          <ul className="nk-tb-actions gx-1">
+            <li className="nk-tb-action-hidden" onClick={() => onEditClick(item.id)}>
+              <button className="btn btn-trigger btn-icon" id={"edit" + item.id}>
+                <Icon name="edit-alt-fill" />
+              </button>
+            </li>
+            {item.status !== "Suspend" && (
+              <li className="nk-tb-action-hidden" onClick={() => suspendUser(item.id)}>
+                <button className="btn btn-trigger btn-icon" id={"suspend" + item.id}>
+                  <Icon name="user-cross-fill" />
+                </button>
+              </li>
+            )}
+            <li>
+              <button className="btn btn-icon btn-trigger" onClick={() => toggleDropdown(item.id)}>
+                <Icon name="more-h" />
+              </button>
+            </li>
+          </ul>
+        </DataTableRow>
+      </DataTableItem>
+    ))
+  : null}
           </div>
           <PreviewAltCard>
             {currentItems.length > 0 ? (

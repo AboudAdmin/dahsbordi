@@ -37,11 +37,13 @@ const ProductList = () => {
   const [formData, setFormData] = useState({
     name: "",
     img: null,
-    sku: "",
     price: 0,
-    salePrice: 0,
+    quantity: 0,
     stock: 0,
-    category: [],
+    category: [], // تأكد من أن category هو مصفوفة
+    description: "",
+    statut: "",
+    marque: "",
     fav: false,
     check: false,
   });
@@ -109,17 +111,19 @@ const ProductList = () => {
     reset({});
   };
 
-  const onFormSubmit = async (form) => {
-    const { name, price, salePrice, stock, sku, category } = form;
+  const [productsList, setProductsList] = useState([]); // تعريف قائمة المنتجات
+
+  const onFormSubmit = async (data) => {
+    const { name, price, quantity, description, statut, marque } = data;
     let submittedData = {
       name: name,
       price: price,
-      salePrice: salePrice,
-      stock: stock,
-      sku: sku,
-      category: category,
+      quantity: quantity,
+      description: description,
+      statut: statut.value,
+      marque: marque,
     };
-
+  
     try {
       const response = await axios.post('http://localhost:5000/api/products', submittedData);
       console.log('Product added:', response.data);
@@ -130,7 +134,9 @@ const ProductList = () => {
       console.error('There was an error with the axios request:', error);
     }
   };
-
+  
+  
+  
   const onEditSubmit = () => {
     let submittedData;
     let newItems = data;
@@ -165,10 +171,10 @@ const ProductList = () => {
         setFormData({
           name: item.name,
           img: item.img,
-          sku: item.sku,
           price: item.price,
           stock: item.stock,
           category: item.category,
+          description: item.description, // إضافة الحقل هنا
           fav: false,
           check: false,
         });
@@ -362,6 +368,9 @@ const ProductList = () => {
         <span>ID</span>
       </DataTableRow>
       <DataTableRow>
+        <span>Name</span>
+      </DataTableRow>
+      <DataTableRow>
         <span>Price</span>
       </DataTableRow>
       <DataTableRow>
@@ -371,14 +380,11 @@ const ProductList = () => {
         <span>Description</span>
       </DataTableRow>
       <DataTableRow>
-        <span>Marque</span>
+        <span>Statut</span>
       </DataTableRow>
       <DataTableRow>
-        <span>category</span>
+        <span>Marque</span>
       </DataTableRow>
-      {/* <DataTableRow>
-        <span>statut</span>
-      </DataTableRow> */}
       <DataTableRow className="nk-tb-col-tools">
         <ul className="nk-tb-actions gx-1 my-n1">
           <li className="me-n1">
@@ -412,18 +418,6 @@ const ProductList = () => {
                       <span>Remove Selected</span>
                     </DropdownItem>
                   </li>
-                  <li>
-                    <DropdownItem tag="a" href="#stock" onClick={(ev) => ev.preventDefault()}>
-                      <Icon name="bar-c"></Icon>
-                      <span>Update Stock</span>
-                    </DropdownItem>
-                  </li>
-                  <li>
-                    <DropdownItem tag="a" href="#price" onClick={(ev) => ev.preventDefault()}>
-                      <Icon name="invest"></Icon>
-                      <span>Update Price</span>
-                    </DropdownItem>
-                  </li>
                 </ul>
               </DropdownMenu>
             </UncontrolledDropdown>
@@ -431,8 +425,8 @@ const ProductList = () => {
         </ul>
       </DataTableRow>
     </DataTableHead>
-    {data.length > 0
-      ? data.map((item) => (
+    {currentItems.length > 0
+      ? currentItems.map((item) => (
           <DataTableItem key={item.id}>
             <DataTableRow className="nk-tb-col-check">
               <div className="custom-control custom-control-sm custom-checkbox notext">
@@ -453,6 +447,9 @@ const ProductList = () => {
               </span>
             </DataTableRow>
             <DataTableRow>
+              <span className="tb-sub">{item.name}</span>
+            </DataTableRow>
+            <DataTableRow>
               <span className="tb-sub">$ {item.price}</span>
             </DataTableRow>
             <DataTableRow>
@@ -460,6 +457,9 @@ const ProductList = () => {
             </DataTableRow>
             <DataTableRow>
               <span className="tb-sub">{item.description}</span>
+            </DataTableRow>
+            <DataTableRow>
+              <span className="tb-sub">{item.statut}</span>
             </DataTableRow>
             <DataTableRow>
               <span className="tb-sub">{item.marque}</span>
@@ -564,7 +564,7 @@ const ProductList = () => {
                     <Col size="12">
                       <div className="form-group">
                         <label className="form-label" htmlFor="product-title">
-                          Product Title
+                          Name
                         </label>
                         <div className="form-control-wrap">
                           <input
@@ -582,7 +582,7 @@ const ProductList = () => {
                     <Col md="6">
                       <div className="form-group">
                         <label className="form-label" htmlFor="regular-price">
-                          Regular Price
+                          Price
                         </label>
                         <div className="form-control-wrap">
                           <input
@@ -738,15 +738,15 @@ const ProductList = () => {
                   <span className="caption-text">$ {formData.price}</span>
                 </Col>
                 <Col lg={6}>
-                  <span className="sub-text">Product Category</span>
-                  <span className="caption-text">
-                    {formData.category.map((item, index) => (
-                      <Badge key={index} className="me-1" color="secondary">
-                        {item.value}
-                      </Badge>
-                    ))}
-                  </span>
-                </Col>
+  <span className="sub-text">Product Category</span>
+  <span className="caption-text">
+    {Array.isArray(formData.category) && formData.category.map((item, index) => (
+      <Badge key={index} className="me-1" color="secondary">
+        {item.value}
+      </Badge>
+    ))}
+  </span>
+</Col>
                 <Col lg={6}>
                   <span className="sub-text">Stock</span>
                   <span className="caption-text"> {formData.stock}</span>
@@ -755,178 +755,169 @@ const ProductList = () => {
             </div>
           </ModalBody>
         </Modal>
-
         <SimpleBar
-          className={`nk-add-product toggle-slide toggle-slide-right toggle-screen-any ${
-            view.add ? "content-active" : ""
-          }`}
-        >
-          <BlockHead>
-            <BlockHeadContent>
-              <BlockTitle tag="h5">Add Product</BlockTitle>
-              <BlockDes>
-                <p>Add information or update product.</p>
-              </BlockDes>
-            </BlockHeadContent>
-          </BlockHead>
-          <Block>
-            <form onSubmit={handleSubmit(onFormSubmit)}>
-              <Row className="g-3">
-                <Col size="12">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="product-title">
-                      Product Title
-                    </label>
-                    <div className="form-control-wrap">
-                      <input
-                        type="text"
-                        className="form-control"
-                        {...register('name', {
-                          required: "This field is required",
-                        })}
-                        value={formData.name} 
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}/>
-                      {errors.name && <span className="invalid">{errors.name.message}</span>}
-                    </div>
-                  </div>
-                </Col>
-                <Col md="6">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="regular-price">
-                    Price
-                    </label>
-                    <div className="form-control-wrap">
-                      <input
-                        type="number"
-                        {...register('price', { required: "This is required" })}
-                        className="form-control"
-                        value={formData.price} 
-                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}/>
-                      {errors.price && <span className="invalid">{errors.price.message}</span>}
-                    </div>
-                  </div>
-                </Col>
-                <Col md="6">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="sale-price">
-                    Quantity
-                    </label>
-                    <div className="form-control-wrap">
-                      <input
-                        type="number"
-                        className="form-control"
-                        {...register('salePrice')}
-                        value={formData.salePrice} 
-                        onChange={(e) => setFormData({ ...formData, salePrice: e.target.value })}/>
-                      {errors.salePrice && <span className="invalid">{errors.salePrice.message}</span>}
-                    </div>
-                  </div>
-                </Col>
-                <Col md="6">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="stock">
-                    Description
-                    </label>
-                    <div className="form-control-wrap">
-                      <input
-                        type="number"
-                        className="form-control"
-                        {...register('stock', { required: "This is required" })}
-                        value={formData.stock}
-                        onChange={(e) => setFormData({ ...formData, stock: e.target.value })} />
-                      {errors.stock && <span className="invalid">{errors.stock.message}</span>}
-                    </div>
-                  </div>
-                </Col>
-                <Col md="6">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="SKU">
-                    Marque
-                    </label>
-                    <div className="form-control-wrap">
-                      <input
-                        type="text"
-                        className="form-control"
-                        {...register('sku', { required: "This is required" })}
-                        value={formData.sku} 
-                        onChange={(e) => setFormData({ ...formData, sku: e.target.value })}/>
-                      {errors.sku && <span className="invalid">{errors.sku.message}</span>}
-                    </div>
-                  </div>
-                </Col>
-                
-                
-                <Col size="12">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="category">
-                      Category
-                    </label>
-                    <div className="form-control-wrap">
-                      <RSelect
-                        name="category"
-                        isMulti
-                        options={categoryOptions}
-                        onChange={(value) => setFormData({ ...formData, category: value })}
-                        value={formData.category}
-                        //ref={register({ required: "This is required" })}
-                      />
-                      {errors.category && <span className="invalid">{errors.category.message}</span>}
-                    </div>
-                  </div>
-                </Col>
-                <Col size="14">
-  <div className="form-group">
-    <label className="form-label" htmlFor="statut">
-      Statut
-    </label>
-    <div className="form-control-wrap">
-      <RSelect
-        name="statut"
-        options={[
-          { value: 'public', label: 'Public' },
-          { value: 'prive', label: 'Prive' }
-        ]}
-        onChange={(value) => setFormData({ ...formData, statut: value })}
-        value={formData.statut}
-      />
-      {errors.statut && <span className="invalid">{errors.statut.message}</span>}
-    </div>
-  </div>
-</Col>
-                
-                <Col size="12">
-                  <Dropzone onDrop={(acceptedFiles) => handleDropChange(acceptedFiles)}>
-                    {({ getRootProps, getInputProps }) => (
-                      <section>
-                        <div {...getRootProps()} className="dropzone upload-zone small bg-lighter my-2 dz-clickable">
-                          <input {...getInputProps()} />
-                          {files.length === 0 && <p>Drag 'n' drop some files here, or click to select files</p>}
-                          {files.map((file) => (
-                            <div
-                              key={file.name}
-                              className="dz-preview dz-processing dz-image-preview dz-error dz-complete"
-                            >
-                              <div className="dz-image">
-                                <img src={file.preview} alt="preview" />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </section>
-                    )}
-                  </Dropzone>
-                </Col>
+  className={`nk-add-product toggle-slide toggle-slide-right toggle-screen-any ${
+    view.add ? "content-active" : ""
+  }`}
+>
+<BlockHead>
+  <BlockHeadContent>
+    <BlockTitle tag="h5">Add Product</BlockTitle>
+    <BlockDes>
+      <p>Add information or update product.</p>
+    </BlockDes>
+  </BlockHeadContent>
+</BlockHead>
+<Block>
+  <form
+    onSubmit={(e) => {
+      e.preventDefault();
+      if (
+        !formData.name ||
+        !formData.price ||
+        !formData.quantity ||
+        !formData.description ||
+        !formData.statut ||
+        !formData.marque
+      ) {
+        alert("Please fill all fields");
+        return;
+      }
 
-                <Col size="12">
-                  <Button color="primary" type="submit">
-                    <Icon className="plus"></Icon>
-                    <span>Add Product</span>
-                  </Button>
-                </Col>
-              </Row>
-            </form>
-          </Block>
-        </SimpleBar>
+      // Add the product to the local list
+      setProductsList([...productsList, { ...formData }]);
+
+      // Reset the form
+      setFormData({
+        name: "",
+        price: "",
+        quantity: "",
+        description: "",
+        statut: "",
+        marque: "",
+      });
+    }}
+  >
+    <Row className="g-3">
+      <Col size="12">
+        <div className="form-group">
+          <label className="form-label" htmlFor="product-title">
+            Name
+          </label>
+          <div className="form-control-wrap">
+            <input
+              type="text"
+              className="form-control"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            />
+          </div>
+        </div>
+      </Col>
+      <Col md="6">
+        <div className="form-group">
+          <label className="form-label" htmlFor="regular-price">
+            Price
+          </label>
+          <div className="form-control-wrap">
+            <input
+              type="number"
+              className="form-control"
+              value={formData.price}
+              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+            />
+          </div>
+        </div>
+      </Col>
+      <Col md="6">
+        <div className="form-group">
+          <label className="form-label" htmlFor="quantity">
+            Quantity
+          </label>
+          <div className="form-control-wrap">
+            <input
+              type="number"
+              className="form-control"
+              value={formData.quantity}
+              onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+            />
+          </div>
+        </div>
+      </Col>
+      <Col md="6">
+        <div className="form-group">
+          <label className="form-label" htmlFor="description">
+            Description
+          </label>
+          <div className="form-control-wrap">
+            <input
+              type="text"
+              className="form-control"
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+            />
+          </div>
+        </div>
+      </Col>
+      <Col md="6">
+        <div className="form-group">
+          <label className="form-label" htmlFor="statut">
+            Statut
+          </label>
+          <div className="form-control-wrap">
+            <RSelect
+              name="statut"
+              options={[
+                { value: "public", label: "Public" },
+                { value: "prive", label: "Prive" },
+              ]}
+              onChange={(value) => setFormData({ ...formData, statut: value })}
+              value={formData.statut}
+            />
+          </div>
+        </div>
+      </Col>
+      <Col md="6">
+        <div className="form-group">
+          <label className="form-label" htmlFor="marque">
+            Marque
+          </label>
+          <div className="form-control-wrap">
+            <input
+              type="text"
+              className="form-control"
+              value={formData.marque}
+              onChange={(e) => setFormData({ ...formData, marque: e.target.value })}
+            />
+          </div>
+        </div>
+      </Col>
+      <Col size="12">
+        <Button color="primary" type="submit">
+          <Icon className="plus"></Icon>
+          <span>Add Product</span>
+        </Button>
+      </Col>
+    </Row>
+  </form>
+  <h3>Products List:</h3>
+  <ul>
+    {productsList.map((product, index) => (
+      <li key={index}>
+        {product.name} - {product.price} - {product.quantity} -{" "}
+        {product.description} - {product.statut.label} - {product.marque}
+      </li>
+    ))}
+  </ul>
+</Block>
+
+</SimpleBar>
+        
+
+        
+          
 
         {view.add && <div className="toggle-overlay" onClick={toggle}></div>}
       </Content>
