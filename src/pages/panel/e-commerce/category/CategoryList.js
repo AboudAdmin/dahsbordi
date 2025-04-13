@@ -16,31 +16,19 @@ import {
   DataTableRow,
   DataTableItem,
   PaginationComponent,
-  RSelect,
   PreviewAltCard,
 } from "../../../../components/Component";
 import { DropdownItem, UncontrolledDropdown, DropdownMenu, DropdownToggle, Badge } from "reactstrap";
-import { categoryData, categoryOptions } from "./CategoryData";
 import SimpleBar from "simplebar-react";
 import { useForm } from "react-hook-form";
-import ProductH from "../../../../images/product/h.png";
-import Dropzone from "react-dropzone";
 import { Modal, ModalBody } from "reactstrap";
 
-
 const CategoryList = () => {
-  const [data, setData] = useState(categoryData);
+  const [data, setData] = useState([]);
   const [sm, updateSm] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    img: null,
-    sku: "",
-    price: 0,
-    salePrice: 0,
-    stock: 0,
-    category: [],
-    fav: false,
-    check: false,
+    description: "",
   });
 
   const [editId, setEditedId] = useState();
@@ -50,45 +38,101 @@ const CategoryList = () => {
     details: false,
   });
 
-
   const [onSearchText, setSearchText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemPerPage] = useState(7);
-  const [files, setFiles] = useState([]);
   const [currentItems, setCurrentItems] = useState([]);
 
+  // Fetch categories from API
   const getCategories = () => {
     fetch('http://localhost:5000/api/category')
-        .then((res) => {
-            if (!res.ok) {
-                throw new Error('Network response was not ok ' + res.statusText);
-            }
-            return res.json();
-        })
-        .then((data) => {
-            console.log('Data from backend:', data);
-            setCurrentItems(data);
-        })
-        .catch((error) => {
-            console.error('There has been a problem with your fetch operation:', error);
-        });
-}
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Network response was not ok ' + res.statusText);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log('Categories from backend:', data);
+        setData(data);
+        setCurrentItems(data);
+      })
+      .catch((error) => {
+        console.error('There has been a problem with your fetch operation:', error);
+      });
+  }
 
-  
+  // Add new category to database
+  const addCategory = (categoryData) => {
+    fetch('http://localhost:5000/api/category', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(categoryData),
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Success:', data);
+        getCategories(); // Refresh the list after adding
+      })
+      .catch((error) => {
+        console.error('Error:', error);
+      });
+  }
 
+  // Update category in database
+  const updateCategory = (id, categoryData) => {
+    fetch(`http://localhost:5000/api/category/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(categoryData),
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Success:', data);
+        getCategories(); // Refresh the list after updating
+      })
+      .catch((error) => {
+        console.error('Error:', error);
+      });
+  }
 
-  // Changing state value when searching name
+  // Delete category from database
+  const deleteCategory = (id) => {
+    fetch(`http://localhost:5000/api/category/${id}`, {
+      method: 'DELETE',
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Success:', data);
+        getCategories(); // Refresh the list after deleting
+      })
+      .catch((error) => {
+        console.error('Error:', error);
+      });
+  }
+
   useEffect(() => {
     getCategories();
-    if (onSearchText !== "") {
-      const filteredObject = categoryData.filter((item) => {
-        return item.sku.toLowerCase().includes(onSearchText.toLowerCase());
-      });
-      setData([...filteredObject]);
-    } else {
-      setData([...categoryData]);
-    }
-  }, [onSearchText]);
+  }, []);
 
   // function to close the form modal
   const onFormCancel = () => {
@@ -99,63 +143,33 @@ const CategoryList = () => {
   const resetForm = () => {
     setFormData({
       name: "",
-      img: null,
-      sku: "",
-      price: 0,
-      salePrice: 0,
-      stock: 0,
-      category: [],
-      fav: false,
-      check: false,
+      description: "",
     });
     reset({});
   };
 
   const onFormSubmit = (form) => {
-    const { title, price, salePrice, sku, stock } = form;
-    let submittedData = {
-      id: data.length + 1,
-      name: title,
-      img: files.length > 0 ? files[0].preview : ProductH,
-      sku: sku,
-      price: price,
-      salePrice: salePrice,
-      stock: stock,
-      category: formData.category,
-      fav: false,
-      check: false,
+    const { name, description } = form;
+    const categoryData = {
+      name,
+      description
     };
-    setData([submittedData, ...data]);
-    setView({ open: false });
-    setFiles([]);
+    
+    addCategory(categoryData);
+    setView({ add: false });
     resetForm();
   };
 
-  const onEditSubmit = () => {
-    let submittedData;
-    let newItems = data;
-    let index = newItems.findIndex((item) => item.id === editId);
-
-    newItems.forEach((item) => {
-      if (item.id === editId) {
-        submittedData = {
-          id: editId,
-          name: formData.name,
-          img: files.length > 0 ? files[0].preview : item.img,
-          sku: formData.sku,
-          price: formData.price,
-          salePrice: formData.salePrice,
-          stock: formData.stock,
-          category: formData.category,
-          fav: false,
-          check: false,
-        };
-      }
-    });
-    newItems[index] = submittedData;
-    //setData(newItems);
+  const onEditSubmit = (form) => {
+    const { name, description } = form;
+    const categoryData = {
+      name,
+      description
+    };
+    
+    updateCategory(editId, categoryData);
+    setView({ edit: false });
     resetForm();
-    setView({ edit: false, add: false });
   };
 
   // function that loads the want to editted data
@@ -164,18 +178,11 @@ const CategoryList = () => {
       if (item.id === id) {
         setFormData({
           name: item.name,
-          img: item.img,
-          sku: item.sku,
-          price: item.price,
-          stock: item.stock,
-          category: item.category,
-          fav: false,
-          check: false,
+          description: item.description,
         });
       }
     });
     setEditedId(id);
-    setFiles([]);
     setView({ add: false, edit: true });
   };
 
@@ -183,44 +190,14 @@ const CategoryList = () => {
     reset(formData)
   }, [formData]);
 
-  // selects all the products
-  const selectorCheck = (e) => {
-    let newData;
-    newData = data.map((item) => {
-      item.check = e.currentTarget.checked;
-      return item;
-    });
-    setData([...newData]);
+  // function to delete a category
+  const deleteCategoryHandler = (id) => {
+    if (window.confirm("Are you sure you want to delete this category?")) {
+      deleteCategory(id);
+    }
   };
 
-  // selects one product
-  const onSelectChange = (e, id) => {
-    let newData = data;
-    let index = newData.findIndex((item) => item.id === id);
-    newData[index].check = e.currentTarget.checked;
-    setData([...newData]);
-  };
-
-  // onChange function for searching name
-  const onFilterChange = (e) => {
-    setSearchText(e.target.value);
-  };
-
-  // function to delete a product
-  const deleteProduct = (id) => {
-    let defaultData = data;
-    defaultData = defaultData.filter((item) => item.id !== id);
-    setData([...defaultData]);
-  };
-
-  // function to delete the seletected item
-  const selectorDeleteProduct = () => {
-    let newData;
-    newData = data.filter((item) => item.check !== true);
-    setData([...newData]);
-  };
-
-  // toggle function to view product details
+  // toggle function to view category details
   const toggle = (type) => {
     setView({
       edit: type === "edit" ? true : false,
@@ -229,21 +206,9 @@ const CategoryList = () => {
     });
   };
 
-  // handles ondrop function of dropzone
-  const handleDropChange = (acceptedFiles) => {
-    setFiles(
-      acceptedFiles.map((file) =>
-        Object.assign(file, {
-          preview: URL.createObjectURL(file),
-        })
-      )
-    );
-  };
-
   // Get current list, pagination
   const indexOfLastItem = currentPage * itemPerPage;
   const indexOfFirstItem = indexOfLastItem - itemPerPage;
-  //const currentItems = data.slice(indexOfFirstItem, indexOfLastItem);
 
   // Change Page
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
@@ -252,12 +217,12 @@ const CategoryList = () => {
 
   return (
     <React.Fragment>
-      <Head title="Products"></Head>
+      <Head title="Categories"></Head>
       <Content>
         <BlockHead size="sm">
           <BlockBetween>
             <BlockHeadContent>
-              <BlockTitle>Category</BlockTitle>
+              <BlockTitle>Categories</BlockTitle>
             </BlockHeadContent>
             <BlockHeadContent>
               <div className="toggle-wrap nk-block-tools-toggle">
@@ -282,59 +247,26 @@ const CategoryList = () => {
                           type="text"
                           className="form-control"
                           id="default-04"
-                          placeholder="Quick search by SKU"
-                          onChange={(e) => onFilterChange(e)}
+                          placeholder="Search by name"
+                          onChange={(e) => setSearchText(e.target.value)}
                         />
                       </div>
-                    </li>
-                    <li>
-                      <UncontrolledDropdown>
-                        <DropdownToggle
-                          color="transparent"
-                          className="dropdown-toggle dropdown-indicator btn btn-outline-light btn-white"
-                        >
-                          Status
-                        </DropdownToggle>
-                        <DropdownMenu end>
-                          <ul className="link-list-opt no-bdr">
-                            <li>
-                              <DropdownItem tag="a" href="#dropdownitem" onClick={(ev) => ev.preventDefault()}>
-                                <span>New Items</span>
-                              </DropdownItem>
-                            </li>
-                            <li>
-                              <DropdownItem tag="a" href="#dropdownitem" onClick={(ev) => ev.preventDefault()}>
-                                <span>Featured</span>
-                              </DropdownItem>
-                            </li>
-                            <li>
-                              <DropdownItem tag="a" href="#dropdownitem" onClick={(ev) => ev.preventDefault()}>
-                                <span>Out of Stock</span>
-                              </DropdownItem>
-                            </li>
-                          </ul>
-                        </DropdownMenu>
-                      </UncontrolledDropdown>
                     </li>
                     <li className="nk-block-tools-opt">
                       <Button
                         className="toggle btn-icon d-md-none"
                         color="primary"
-                        onClick={() => {
-                          toggle("add");
-                        }}
+                        onClick={() => toggle("add")}
                       >
                         <Icon name="plus"></Icon>
                       </Button>
                       <Button
                         className="toggle d-none d-md-inline-flex"
                         color="primary"
-                        onClick={() => {
-                          toggle("add");
-                        }}
+                        onClick={() => toggle("add")}
                       >
                         <Icon name="plus"></Icon>
-                        <span>Add Product</span>
+                        <span>Add Category</span>
                       </Button>
                     </li>
                   </ul>
@@ -347,26 +279,12 @@ const CategoryList = () => {
         <Block>
           <div className="nk-tb-list is-separate is-medium mb-3">
             <DataTableHead className="nk-tb-item">
-              <DataTableRow className="nk-tb-col-check">
-                <div className="custom-control custom-control-sm custom-checkbox notext">
-                  <input
-                    type="checkbox"
-                    className="custom-control-input"
-                    id="uid_1"
-                    onChange={(e) => selectorCheck(e)}
-                  />
-                  <label className="custom-control-label" htmlFor="uid_1"></label>
-                </div>
-              </DataTableRow>
               <DataTableRow size="sm">
                 <span>Name</span>
               </DataTableRow>
               <DataTableRow>
-                <span>description</span>
+                <span>Description</span>
               </DataTableRow>
-             
-              
-              
               <DataTableRow className="nk-tb-col-tools">
                 <ul className="nk-tb-actions gx-1 my-n1">
                   <li className="me-n1">
@@ -391,25 +309,10 @@ const CategoryList = () => {
                             <DropdownItem
                               tag="a"
                               href="#remove"
-                              onClick={(ev) => {
-                                ev.preventDefault();
-                                selectorDeleteProduct();
-                              }}
+                              onClick={(ev) => ev.preventDefault()}
                             >
                               <Icon name="trash"></Icon>
                               <span>Remove Selected</span>
-                            </DropdownItem>
-                          </li>
-                          <li>
-                            <DropdownItem tag="a" href="#stock" onClick={(ev) => ev.preventDefault()}>
-                              <Icon name="bar-c"></Icon>
-                              <span>Update Stock</span>
-                            </DropdownItem>
-                          </li>
-                          <li>
-                            <DropdownItem tag="a" href="#price" onClick={(ev) => ev.preventDefault()}>
-                              <Icon name="invest"></Icon>
-                              <span>Update Price</span>
                             </DropdownItem>
                           </li>
                         </ul>
@@ -421,44 +324,13 @@ const CategoryList = () => {
             </DataTableHead>
             {currentItems.length > 0
               ? currentItems.map((item) => {
-                
                   return (
                     <DataTableItem key={item.id}>
-                      <DataTableRow className="nk-tb-col-check">
-                        <div className="custom-control custom-control-sm custom-checkbox notext">
-                          <input
-                            type="checkbox"
-                            className="custom-control-input"
-                            defaultChecked={item.check}
-                            id={item.id + "uid1"}
-                            key={Math.random()}
-                            onChange={(e) => onSelectChange(e, item.id)}
-                          />
-                          <label className="custom-control-label" htmlFor={item.id + "uid1"}></label>
-                        </div>
-                      </DataTableRow>
                       <DataTableRow size="sm">
-                        <span className="tb-product">
-                          <img src={item.img ? item.img : ProductH} alt="product" className="thumb" />
-                          <span className="title">{item.name}</span>
-                        </span>
+                        <span className="title">{item.name}</span>
                       </DataTableRow>
                       <DataTableRow>
                         <span className="tb-sub">{item.description}</span>
-                      </DataTableRow>
-                      
-                      
-                      <DataTableRow size="md">
-                        <div className="asterisk tb-asterisk">
-                          <a
-                            href="#asterisk"
-                            className={item.fav ? "active" : ""}
-                            onClick={(ev) => ev.preventDefault()}
-                          >
-                            <Icon name="star" className="asterisk-off"></Icon>
-                            <Icon name="star-fill" className="asterisk-on"></Icon>
-                          </a>
-                        </div>
                       </DataTableRow>
                       <DataTableRow className="nk-tb-col-tools">
                         <ul className="nk-tb-actions gx-1 my-n1">
@@ -485,7 +357,7 @@ const CategoryList = () => {
                                       }}
                                     >
                                       <Icon name="edit"></Icon>
-                                      <span>Edit Product</span>
+                                      <span>Edit Category</span>
                                     </DropdownItem>
                                   </li>
                                   <li>
@@ -499,7 +371,7 @@ const CategoryList = () => {
                                       }}
                                     >
                                       <Icon name="eye"></Icon>
-                                      <span>View Product</span>
+                                      <span>View Details</span>
                                     </DropdownItem>
                                   </li>
                                   <li>
@@ -508,11 +380,11 @@ const CategoryList = () => {
                                       href="#remove"
                                       onClick={(ev) => {
                                         ev.preventDefault();
-                                        deleteProduct(item.id);
+                                        deleteCategoryHandler(item.id);
                                       }}
                                     >
                                       <Icon name="trash"></Icon>
-                                      <span>Remove Product</span>
+                                      <span>Remove Category</span>
                                     </DropdownItem>
                                   </li>
                                 </ul>
@@ -524,7 +396,11 @@ const CategoryList = () => {
                     </DataTableItem>
                   );
                 })
-              : null}
+              : <DataTableItem>
+                  <DataTableRow>
+                    <span className="text-silent">No categories found</span>
+                  </DataTableRow>
+                </DataTableItem>}
           </div>
           <PreviewAltCard>
             {data.length > 0 ? (
@@ -536,16 +412,16 @@ const CategoryList = () => {
               />
             ) : (
               <div className="text-center">
-                <span className="text-silent">No products found</span>
+                <span className="text-silent">No categories found</span>
               </div>
             )}
           </PreviewAltCard>
         </Block>
 
+        {/* Edit Modal */}
         <Modal isOpen={view.edit} toggle={() => onFormCancel()} className="modal-dialog-centered" size="lg">
           <ModalBody>
             <a href="#cancel" className="close">
-              {" "}
               <Icon
                 name="cross-sm"
                 onClick={(ev) => {
@@ -555,14 +431,14 @@ const CategoryList = () => {
               ></Icon>
             </a>
             <div className="p-2">
-              <h5 className="title">Update Product</h5>
+              <h5 className="title">Update Category</h5>
               <div className="mt-4">
                 <form onSubmit={handleSubmit(onEditSubmit)}>
                   <Row className="g-3">
                     <Col size="12">
                       <div className="form-group">
-                        <label className="form-label" htmlFor="product-title">
-                          Product Title
+                        <label className="form-label" htmlFor="category-name">
+                          Category Name
                         </label>
                         <div className="form-control-wrap">
                           <input
@@ -577,127 +453,26 @@ const CategoryList = () => {
                         </div>
                       </div>
                     </Col>
-                    <Col md="6">
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="regular-price">
-                          Regular Price
-                        </label>
-                        <div className="form-control-wrap">
-                          <input
-                            type="number"
-                            {...register('price', { required: "This is required" })}
-                            className="form-control"
-                            value={formData.price}
-                            onChange={(e) => setFormData({ ...formData, price: e.target.value })}/>
-                          {errors.price && <span className="invalid">{errors.price.message}</span>}
-                        </div>
-                      </div>
-                    </Col>
-                    <Col md="6">
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="sale-price">
-                          Sale Price
-                        </label>
-                        <div className="form-control-wrap">
-                          <input
-                            type="number"
-                            className="form-control"
-                            {...register('salePrice')}
-                            value={formData.salePrice} 
-                            onChange={(e) => setFormData({ ...formData, salePrice: e.target.value })}/>
-                          {errors.salePrice && <span className="invalid">{errors.salePrice.message}</span>}
-                        </div>
-                      </div>
-                    </Col>
-                    <Col md="6">
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="stock">
-                          Stock
-                        </label>
-                        <div className="form-control-wrap">
-                          <input
-                            type="number"
-                            className="form-control"
-                            {...register('stock', { required: "This is required" })}
-                            value={formData.stock}
-                            onChange={(e) => setFormData({ ...formData, stock: e.target.value })} />
-                          {errors.stock && <span className="invalid">{errors.stock.message}</span>}
-                        </div>
-                      </div>
-                    </Col>
-                    <Col md="6">
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="SKU">
-                          SKU
-                        </label>
-                        <div className="form-control-wrap">
-                          <input
-                            type="text"
-                            className="form-control"
-                            {...register('sku', { required: "This is required" })}
-                            value={formData.sku}
-                            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}/>
-                          {errors.sku && <span className="invalid">{errors.sku.message}</span>}
-                        </div>
-                      </div>
-                    </Col>
                     <Col size="12">
                       <div className="form-group">
-                        <label className="form-label" htmlFor="category">
-                          Category
+                        <label className="form-label" htmlFor="category-description">
+                          Description
                         </label>
                         <div className="form-control-wrap">
-                          <RSelect
-                            isMulti
-                            options={categoryOptions}
-                            value={formData.category}
-                            onChange={(value) => setFormData({ ...formData, category: value })}
-                            //ref={register({ required: "This is required" })}
+                          <textarea
+                            className="form-control"
+                            {...register('description')}
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            rows="3"
                           />
-                          {errors.category && <span className="invalid">{errors.category.message}</span>}
                         </div>
                       </div>
                     </Col>
-                    <Col size="6">
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="category">
-                          Product Image
-                        </label>
-                        <div className="form-control-wrap">
-                          <img src={formData.img} alt=""></img>
-                        </div>
-                      </div>
-                    </Col>
-                    <Col size="6">
-                      <Dropzone onDrop={(acceptedFiles) => handleDropChange(acceptedFiles)}>
-                        {({ getRootProps, getInputProps }) => (
-                          <section>
-                            <div
-                              {...getRootProps()}
-                              className="dropzone upload-zone small bg-lighter my-2 dz-clickable"
-                            >
-                              <input {...getInputProps()} />
-                              {files.length === 0 && <p>Drag 'n' drop some files here, or click to select files</p>}
-                              {files.map((file) => (
-                                <div
-                                  key={file.name}
-                                  className="dz-preview dz-processing dz-image-preview dz-error dz-complete"
-                                >
-                                  <div className="dz-image">
-                                    <img src={file.preview} alt="preview" />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </section>
-                        )}
-                      </Dropzone>
-                    </Col>
-
                     <Col size="12">
                       <Button color="primary" type="submit">
                         <Icon className="plus"></Icon>
-                        <span>Update Product</span>
+                        <span>Update Category</span>
                       </Button>
                     </Col>
                   </Row>
@@ -707,10 +482,10 @@ const CategoryList = () => {
           </ModalBody>
         </Modal>
 
+        {/* Details Modal */}
         <Modal isOpen={view.details} toggle={() => onFormCancel()} className="modal-dialog-centered" size="lg">
           <ModalBody>
             <a href="#cancel" className="close">
-              {" "}
               <Icon
                 name="cross-sm"
                 onClick={(ev) => {
@@ -721,39 +496,25 @@ const CategoryList = () => {
             </a>
             <div className="nk-modal-head">
               <h4 className="nk-modal-title title">
-                Product <small className="text-primary">#{formData.sku}</small>
+                Category Details
               </h4>
-              <img src={formData.img} alt="" />
             </div>
             <div className="nk-tnx-details mt-sm-3">
               <Row className="gy-3">
                 <Col lg={6}>
-                  <span className="sub-text">Product Name</span>
+                  <span className="sub-text">Category Name</span>
                   <span className="caption-text">{formData.name}</span>
                 </Col>
                 <Col lg={6}>
-                  <span className="sub-text">Product Price</span>
-                  <span className="caption-text">$ {formData.price}</span>
-                </Col>
-                <Col lg={6}>
-                  <span className="sub-text">Product Category</span>
-                  <span className="caption-text">
-                    {formData.category.map((item, index) => (
-                      <Badge key={index} className="me-1" color="secondary">
-                        {item.value}
-                      </Badge>
-                    ))}
-                  </span>
-                </Col>
-                <Col lg={6}>
-                  <span className="sub-text">Stock</span>
-                  <span className="caption-text"> {formData.stock}</span>
+                  <span className="sub-text">Description</span>
+                  <span className="caption-text">{formData.description || "No description"}</span>
                 </Col>
               </Row>
             </div>
           </ModalBody>
         </Modal>
 
+        {/* Add Category Sidebar */}
         <SimpleBar
           className={`nk-add-product toggle-slide toggle-slide-right toggle-screen-any ${
             view.add ? "content-active" : ""
@@ -761,9 +522,9 @@ const CategoryList = () => {
         >
           <BlockHead>
             <BlockHeadContent>
-              <BlockTitle tag="h5">Add Product</BlockTitle>
+              <BlockTitle tag="h5">Add Category</BlockTitle>
               <BlockDes>
-                <p>Add information or update product.</p>
+                <p>Add a new product category</p>
               </BlockDes>
             </BlockHeadContent>
           </BlockHead>
@@ -772,8 +533,8 @@ const CategoryList = () => {
               <Row className="g-3">
                 <Col size="12">
                   <div className="form-group">
-                    <label className="form-label" htmlFor="product-title">
-                      Product Title
+                    <label className="form-label" htmlFor="category-name">
+                      Category Name
                     </label>
                     <div className="form-control-wrap">
                       <input
@@ -782,121 +543,32 @@ const CategoryList = () => {
                         {...register('name', {
                           required: "This field is required",
                         })}
-                        value={formData.name} 
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}/>
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                       {errors.name && <span className="invalid">{errors.name.message}</span>}
                     </div>
                   </div>
                 </Col>
-                <Col md="6">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="regular-price">
-                      Regular Price
-                    </label>
-                    <div className="form-control-wrap">
-                      <input
-                        type="number"
-                        {...register('price', { required: "This is required" })}
-                        className="form-control"
-                        value={formData.price} 
-                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}/>
-                      {errors.price && <span className="invalid">{errors.price.message}</span>}
-                    </div>
-                  </div>
-                </Col>
-                <Col md="6">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="sale-price">
-                      Sale Price
-                    </label>
-                    <div className="form-control-wrap">
-                      <input
-                        type="number"
-                        className="form-control"
-                        {...register('salePrice')}
-                        value={formData.salePrice} 
-                        onChange={(e) => setFormData({ ...formData, salePrice: e.target.value })}/>
-                      {errors.salePrice && <span className="invalid">{errors.salePrice.message}</span>}
-                    </div>
-                  </div>
-                </Col>
-                <Col md="6">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="stock">
-                      Stock
-                    </label>
-                    <div className="form-control-wrap">
-                      <input
-                        type="number"
-                        className="form-control"
-                        {...register('stock', { required: "This is required" })}
-                        value={formData.stock}
-                        onChange={(e) => setFormData({ ...formData, stock: e.target.value })} />
-                      {errors.stock && <span className="invalid">{errors.stock.message}</span>}
-                    </div>
-                  </div>
-                </Col>
-                <Col md="6">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="SKU">
-                      SKU
-                    </label>
-                    <div className="form-control-wrap">
-                      <input
-                        type="text"
-                        className="form-control"
-                        {...register('sku', { required: "This is required" })}
-                        value={formData.sku} 
-                        onChange={(e) => setFormData({ ...formData, sku: e.target.value })}/>
-                      {errors.sku && <span className="invalid">{errors.sku.message}</span>}
-                    </div>
-                  </div>
-                </Col>
                 <Col size="12">
                   <div className="form-group">
-                    <label className="form-label" htmlFor="category">
-                      Category
+                    <label className="form-label" htmlFor="category-description">
+                      Description
                     </label>
                     <div className="form-control-wrap">
-                      <RSelect
-                        name="category"
-                        isMulti
-                        options={categoryOptions}
-                        onChange={(value) => setFormData({ ...formData, category: value })}
-                        value={formData.category}
-                        //ref={register({ required: "This is required" })}
+                      <textarea
+                        className="form-control"
+                        {...register('description')}
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        rows="3"
                       />
-                      {errors.category && <span className="invalid">{errors.category.message}</span>}
                     </div>
                   </div>
                 </Col>
-                <Col size="12">
-                  <Dropzone onDrop={(acceptedFiles) => handleDropChange(acceptedFiles)}>
-                    {({ getRootProps, getInputProps }) => (
-                      <section>
-                        <div {...getRootProps()} className="dropzone upload-zone small bg-lighter my-2 dz-clickable">
-                          <input {...getInputProps()} />
-                          {files.length === 0 && <p>Drag 'n' drop some files here, or click to select files</p>}
-                          {files.map((file) => (
-                            <div
-                              key={file.name}
-                              className="dz-preview dz-processing dz-image-preview dz-error dz-complete"
-                            >
-                              <div className="dz-image">
-                                <img src={file.preview} alt="preview" />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </section>
-                    )}
-                  </Dropzone>
-                </Col>
-
                 <Col size="12">
                   <Button color="primary" type="submit">
                     <Icon className="plus"></Icon>
-                    <span>Add Product</span>
+                    <span>Add Category</span>
                   </Button>
                 </Col>
               </Row>
@@ -904,7 +576,7 @@ const CategoryList = () => {
           </Block>
         </SimpleBar>
 
-        {view.add && <div className="toggle-overlay" onClick={toggle}></div>}
+        {view.add && <div className="toggle-overlay" onClick={() => toggle("add")}></div>}
       </Content>
     </React.Fragment>
   );

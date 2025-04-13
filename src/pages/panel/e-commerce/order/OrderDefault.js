@@ -1,676 +1,208 @@
 import React, { useEffect, useState } from "react";
-import Head from "../../../../layout/head/Head";
-import Content from "../../../../layout/content/Content";
-import DatePicker from "react-datepicker";
-import { orderData } from "./OrderData";
-import {
-  Block,
-  BlockHeadContent,
-  BlockTitle,
-  BlockBetween,
-  BlockHead,
-  DataTableHead,
-  DataTableItem,
-  DataTableRow,
-  Icon,
-  TooltipComponent,
-  PaginationComponent,
-  PreviewAltCard,
-  Row,
-  Col,
-  RSelect,
-} from "../../../../components/Component";
-import { getDateStructured } from "../../../../utils/Utils";
-import { UncontrolledDropdown, DropdownMenu, DropdownToggle, DropdownItem, Button, Modal, ModalBody, Badge  } from "reactstrap";
+import axios from "axios";
+import { Badge, Button, Modal, ModalBody } from "reactstrap";
 import { useForm } from "react-hook-form";
+import { Link } from "react-router-dom";
 
-const OrderDefault = () => {
-  const [data, setData] = useState(orderData);
-  const [smOption, setSmOption] = useState(false);
-  const [formData, setFormData] = useState({
-    id: null,
-    orderId: "",
-    date: new Date(),
-    status: "Delivered",
-    customer: "",
-    purchased: "",
-    total: "",
-    check: false,
-  });
-  const [view, setView] = useState({
-    add: false,
-    details: false,
-  });
-  const [onSearchText, setSearchText] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemPerPage] = useState(7);
+const OrderManagement = () => {
+  // States
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
-  // Changing state value when searching name
-  useEffect(() => {
-    if (onSearchText !== "") {
-      const filteredObject = orderData.filter((item) => {
-        return item.orderId.includes(onSearchText);
-      });
-      setData([...filteredObject]);
-    } else {
-      setData([...orderData]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalType, setModalType] = useState("view"); // 'view' or 'add'
+
+
+  // Fetch orders
+  const fetchOrders = async () => {
+    try {
+      const { data } = await axios.get("http://localhost:5000/api/orders");
+      setOrders(data);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    } finally {
+      setLoading(false);
     }
-  }, [onSearchText]);
+  };
+  
 
-  // toggle function to view order details
-  const toggle = (type) => {
-    setView({
-      add: type === "add" ? true : false,
-      details: type === "details" ? true : false,
-    });
+  // Handle form submission
+  const { register, handleSubmit, reset } = useForm();
+  const onSubmit = async (data) => {
+    try {
+      const orderData = {
+        ...data,
+        total: parseFloat(data.total),
+        status: "en attente",
+        date: new Date().toISOString()
+      };
+      
+      const { data: newOrder } = await axios.post("http://localhost:5000/api/orders", orderData);
+      setOrders([newOrder, ...orders]);
+      setIsModalOpen(false);
+      reset();
+    } catch (error) {
+      console.error("Error creating order:", error);
+    }
   };
 
-  // selects all the order
-  const selectorCheck = (e) => {
-    let newData;
-    newData = data.map((item) => {
-      item.check = e.currentTarget.checked;
-      return item;
-    });
-    setData([...newData]);
+  // Handle delete
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/orders/${id}`);
+      setOrders(orders.filter(order => order.id !== id));
+    } catch (error) {
+      console.error("Error deleting order:", error);
+    }
   };
 
-  // selects one order
-  const onSelectChange = (e, id) => {
-    let newData = data;
-    let index = newData.findIndex((item) => item.id === id);
-    newData[index].check = e.currentTarget.checked;
-    setData([...newData]);
-  };
-
-  // resets forms
-  const resetForm = () => {
-    setFormData({
-      id: null,
-      orderId: "",
-      date: new Date(),
-      status: "Delivered",
-      customer: "",
-      purchased: "",
-      total: "",
-      check: false,
-    });
-  };
-
-  const onFormSubmit = (form) => {
-    const { customer, purchased, total } = form;
-    let submittedData = {
-      id: data.length + 1,
-      orderId: "95981",
-      date: getDateStructured(formData.date),
-      status: formData.status,
-      customer: customer,
-      purchased: purchased,
-      total: total,
-      check: false,
-    };
-    setData([submittedData, ...data]);
-    setView({ add: false, details: false });
-    resetForm();
+  // Handle status update
+  const updateStatus = async (id, newStatus) => {
+    try {
+      await axios.patch(`http://localhost:5000/api/orders/${id}`, { status: newStatus });
+      setOrders(orders.map(order => 
+        order.id === id ? { ...order, status: newStatus } : order
+      ));
+    } catch (error) {
+      console.error("Error updating status:", error);
+    }
   };
 
   useEffect(() => {
-    reset(formData)
-  }, [formData]);
+    fetchOrders();
+  }, []);
 
-  // function to load detail data
-  const loadDetail = (id) => {
-    let index = data.findIndex((item) => item.id === id);
-    setFormData(data[index]);
-  };
-
-  // OnChange function to get the input data
-  const onInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  // onChange function for searching name
-  const onFilterChange = (e) => {
-    setSearchText(e.target.value);
-  };
-
-  // function to close the form modal
-  const onFormCancel = () => {
-    setView({ add: false, details: false });
-    resetForm();
-  };
-
-  // function to change to approve property for an item
-  const markAsDelivered = (id) => {
-    let newData = data;
-    let index = newData.findIndex((item) => item.id === id);
-    newData[index].status = "Delivered";
-    setData([...newData]);
-  };
-
-  // function to delete a Order
-  const deleteOrder = (id) => {
-    let defaultData = data;
-    defaultData = defaultData.filter((item) => item.id !== id);
-    setData([...defaultData]);
-  };
-
-  // function to delete the seletected item
-  const selectorDeleteOrder = () => {
-    let newData;
-    newData = data.filter((item) => item.check !== true);
-    setData([...newData]);
-  };
-
-  // function to change the complete property of an item
-  const selectorMarkAsDelivered = () => {
-    let newData;
-    newData = data.map((item) => {
-      if (item.check === true) item.status = "Delivered";
-      return item;
-    });
-    setData([...newData]);
-  };
-
-  // Get current list, pagination
-  const indexOfLastItem = currentPage * itemPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemPerPage;
-  const currentItems = data.slice(indexOfFirstItem, indexOfLastItem);
-
-  // Change Page
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
-  const { reset, register, handleSubmit, formState: { errors } } = useForm();
+  if (loading) return <div>Loading orders...</div>;
 
   return (
-    <React.Fragment>
-      <Head title="Order Default"></Head>
-      <Content>
-        <BlockHead size="sm">
-          <BlockBetween>
-            <BlockHeadContent>
-              <BlockTitle>Orders</BlockTitle>
-            </BlockHeadContent>
-            <BlockHeadContent>
-              <div className="toggle-wrap nk-block-tools-toggle">
-                <a
-                  href="#more"
-                  className="btn btn-icon btn-trigger toggle-expand me-n1"
-                  onClick={(ev) => {
-                    ev.preventDefault();
-                    setSmOption(!smOption);
-                  }}
-                >
-                  <Icon name="more-v"></Icon>
-                </a>
-                <div className="toggle-expand-content" style={{ display: smOption ? "block" : "none" }}>
-                  <ul className="nk-block-tools g-3">
-                    <li>
-                      <div className="form-control-wrap">
-                        <div className="form-icon form-icon-right">
-                          <Icon name="search"></Icon>
-                        </div>
-                        <input
-                          type="text"
-                          className="form-control"
-                          id="default-04"
-                          placeholder="Search by orderId"
-                          onChange={(e) => onFilterChange(e)}
-                        />
-                      </div>
-                    </li>
-                    <li>
-                      <UncontrolledDropdown>
-                        <DropdownToggle
-                          color="transparent"
-                          className="dropdown-toggle dropdown-indicator btn btn-outline-light btn-white"
-                        >
-                          Status
-                        </DropdownToggle>
-                        <DropdownMenu end>
-                          <ul className="link-list-opt no-bdr">
-                            <li>
-                              <DropdownItem tag="a" href="#dropdownitem" onClick={(ev) => ev.preventDefault()}>
-                                <span>New Items</span>
-                              </DropdownItem>
-                            </li>
-                            <li>
-                              <DropdownItem tag="a" href="#dropdownitem" onClick={(ev) => ev.preventDefault()}>
-                                <span>Featured</span>
-                              </DropdownItem>
-                            </li>
-                            <li>
-                              <DropdownItem tag="a" href="#dropdownitem" onClick={(ev) => ev.preventDefault()}>
-                                <span>Out of Stock</span>
-                              </DropdownItem>
-                            </li>
-                          </ul>
-                        </DropdownMenu>
-                      </UncontrolledDropdown>
-                    </li>
-                    <li className="nk-block-tools-opt">
-                      <Button
-                        className="toggle btn-icon d-md-none"
-                        color="primary"
-                        onClick={() => {
-                          toggle("add");
-                        }}
-                      >
-                        <Icon name="plus"></Icon>
-                      </Button>
-                      <Button
-                        className="toggle d-none d-md-inline-flex"
-                        color="primary"
-                        onClick={() => {
-                          toggle("add");
-                        }}
-                      >
-                        <Icon name="plus"></Icon>
-                        <span>Add Order</span>
-                      </Button>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </BlockHeadContent>
-          </BlockBetween>
-        </BlockHead>
+    <div className="container">
+      <h2>Order Management</h2>
+      
+      <Button color="primary" onClick={() => {
+        setSelectedOrder(null);
+        setModalType("add");
+        setIsModalOpen(true);
+      }}>
+        Add New Order
+      </Button>
 
-        <Block>
-          <div className="nk-tb-list is-separate is-medium mb-3">
-            <DataTableHead className="nk-tb-item">
-              <DataTableRow className="nk-tb-col-check">
-                <div className="custom-control custom-control-sm custom-checkbox notext">
-                  <input
-                    type="checkbox"
-                    className="custom-control-input"
-                    id="pid-all"
-                    onChange={(e) => selectorCheck(e)}
-                  />
-                  <label className="custom-control-label" htmlFor="pid-all"></label>
-                </div>
-              </DataTableRow>
-              <DataTableRow>
-                <span className="sub-text">Order</span>
-              </DataTableRow>
-              <DataTableRow size="md">
-                <span className="sub-text">Date</span>
-              </DataTableRow>
-              <DataTableRow>
-                <span className="sub-text">Status</span>
-              </DataTableRow>
-              <DataTableRow size="sm">
-                <span className="sub-text">Customer</span>
-              </DataTableRow>
-              <DataTableRow size="md">
-                <span className="sub-text">Purchased</span>
-              </DataTableRow>
-              <DataTableRow>
-                <span className="sub-text">Total</span>
-              </DataTableRow>
-
-              <DataTableRow className="nk-tb-col-tools">
-                <ul className="nk-tb-actions gx-1 my-n1">
-                  <li>
-                    <UncontrolledDropdown>
-                      <DropdownToggle tag="a" className="btn btn-trigger dropdown-toggle btn-icon me-n1">
-                        <Icon name="more-h"></Icon>
-                      </DropdownToggle>
-                      <DropdownMenu end>
-                        <ul className="link-list-opt no-bdr">
-                          <li>
-                            <DropdownItem
-                              tag="a"
-                              href="#markasdone"
-                              onClick={(ev) => {
-                                ev.preventDefault();
-                                selectorMarkAsDelivered();
-                              }}
-                            >
-                              <Icon name="truck"></Icon>
-                              <span>Mark As Delivered</span>
-                            </DropdownItem>
-                          </li>
-                          <li>
-                            <DropdownItem
-                              tag="a"
-                              href="#remove"
-                              onClick={(ev) => {
-                                ev.preventDefault();
-                                selectorDeleteOrder();
-                              }}
-                            >
-                              <Icon name="trash"></Icon>
-                              <span>Remove Orders</span>
-                            </DropdownItem>
-                          </li>
-                        </ul>
-                      </DropdownMenu>
-                    </UncontrolledDropdown>
-                  </li>
-                </ul>
-              </DataTableRow>
-            </DataTableHead>
-
-            {currentItems.length > 0
-              ? currentItems.map((item) => (
-                  <DataTableItem key={item.id}>
-                    <DataTableRow className="nk-tb-col-check">
-                      <div className="custom-control custom-control-sm custom-checkbox notext">
-                        <input
-                          type="checkbox"
-                          className="custom-control-input"
-                          defaultChecked={item.check}
-                          id={item.id + "oId-all"}
-                          key={Math.random()}
-                          onChange={(e) => onSelectChange(e, item.id)}
-                        />
-                        <label className="custom-control-label" htmlFor={item.id + "oId-all"}></label>
-                      </div>
-                    </DataTableRow>
-                    <DataTableRow>
-                      <a href="#id" onClick={(ev) => ev.preventDefault()}>
-                        #{item.orderId}
-                      </a>
-                    </DataTableRow>
-                    <DataTableRow size="md">
-                      <span>{item.date}</span>
-                    </DataTableRow>
-                    <DataTableRow>
-                      <span
-                        className={`dot bg-${item.status === "Delivered" ? "success" : "warning"} d-sm-none`}
-                      ></span>
-                      <Badge
-                        className="badge-sm badge-dot has-bg d-none d-sm-inline-flex"
-                        color={
-                          item.status === "Delivered" ? "success" : "warning"
-                        }
-                      >
-                        {item.status}
-                      </Badge>
-                    </DataTableRow>
-                    <DataTableRow size="sm">
-                      <span className="tb-sub">{item.customer}</span>
-                    </DataTableRow>
-                    <DataTableRow size="md">
-                      <span className="tb-sub text-primary">{item.purchased}</span>
-                    </DataTableRow>
-                    <DataTableRow>
-                      <span className="tb-lead">$ {item.total}</span>
-                    </DataTableRow>
-                    <DataTableRow className="nk-tb-col-tools">
-                      <ul className="nk-tb-actions gx-1">
-                        {item.status !== "Delivered" && (
-                          <li className="nk-tb-action-hidden" onClick={() => markAsDelivered(item.id)}>
-                            <TooltipComponent
-                              tag="a"
-                              containerClassName="btn btn-trigger btn-icon"
-                              id={"delivery" + item.id}
-                              icon="truck"
-                              direction="top"
-                              text="Mark as Delivered"
-                            />
-                          </li>
-                        )}
-                        <li
-                          className="nk-tb-action-hidden"
-                          onClick={() => {
-                            loadDetail(item.id);
-                            toggle("details");
-                          }}
-                        >
-                          <TooltipComponent
-                            tag="a"
-                            containerClassName="btn btn-trigger btn-icon"
-                            id={"view" + item.id}
-                            icon="eye"
-                            direction="top"
-                            text="View Details"
-                          />
-                        </li>
-                        <li>
-                          <UncontrolledDropdown>
-                            <DropdownToggle tag="a" className="btn btn-icon dropdown-toggle btn-trigger">
-                              <Icon name="more-h"></Icon>
-                            </DropdownToggle>
-                            <DropdownMenu end>
-                              <ul className="link-list-opt no-bdr">
-                                <li>
-                                  <DropdownItem
-                                    tag="a"
-                                    href="#dropdown"
-                                    onClick={(ev) => {
-                                      ev.preventDefault();
-                                      loadDetail(item.id);
-                                      toggle("details");
-                                    }}
-                                  >
-                                    <Icon name="eye"></Icon>
-                                    <span>Order Details</span>
-                                  </DropdownItem>
-                                </li>
-                                {item.status !== "Delivered" && (
-                                  <li>
-                                    <DropdownItem
-                                      tag="a"
-                                      href="#dropdown"
-                                      onClick={(ev) => {
-                                        ev.preventDefault();
-                                        markAsDelivered(item.id);
-                                      }}
-                                    >
-                                      <Icon name="truck"></Icon>
-                                      <span>Mark as Delivered</span>
-                                    </DropdownItem>
-                                  </li>
-                                )}
-                                <li>
-                                  <DropdownItem
-                                    tag="a"
-                                    href="#dropdown"
-                                    onClick={(ev) => {
-                                      ev.preventDefault();
-                                      deleteOrder(item.id);
-                                    }}
-                                  >
-                                    <Icon name="trash"></Icon>
-                                    <span>Remove Order</span>
-                                  </DropdownItem>
-                                </li>
-                              </ul>
-                            </DropdownMenu>
-                          </UncontrolledDropdown>
-                        </li>
-                      </ul>
-                    </DataTableRow>
-                  </DataTableItem>
-                ))
-              : null}
-          </div>
-          <PreviewAltCard>
-            {data.length > 0 ? (
-              <PaginationComponent
-                itemPerPage={itemPerPage}
-                totalItems={data.length}
-                paginate={paginate}
-                currentPage={currentPage}
-              />
-            ) : (
-              <div className="text-center">
-                <span className="text-silent">No orders found</span>
-              </div>
-            )}
-          </PreviewAltCard>
-        </Block>
-
-        <Modal isOpen={view.add} toggle={() => onFormCancel()} className="modal-dialog-centered" size="lg">
-          <ModalBody>
-            <a href="#cancel" className="close">
-              {" "}
-              <Icon
-                name="cross-sm"
-                onClick={(ev) => {
-                  ev.preventDefault();
-                  onFormCancel();
-                }}
-              ></Icon>
-            </a>
-            <div className="p-2">
-              <h5 className="title">Add Order</h5>
-              <div className="mt-4">
-                <form onSubmit={handleSubmit(onFormSubmit)}>
-                  <Row className="g-3">
-                    <Col md="12">
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="customer">
-                          Customer Name
-                        </label>
-                        <div className="form-control-wrap">
-                          <input
-                            type="text"
-                            className="form-control"
-                            {...register('customer', {
-                              required: "This field is required",
-                            })}
-                            onChange={(e) => setFormData({ ...formData, customer: e.target.value })}
-                            value={formData.customer} />
-                          {errors.customer && <span className="invalid">{errors.customer.message}</span>}
-                        </div>
-                      </div>
-                    </Col>
-                    <Col md="6">
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="date">
-                          Date of order
-                        </label>
-                        <div className="form-control-wrap">
-                          <DatePicker
-                            selected={formData.date}
-                            className="form-control"
-                            onChange={(date) => setFormData({ ...formData, date: date })}
-                          />
-                          {errors.date && <span className="invalid">{errors.date.message}</span>}
-                        </div>
-                      </div>
-                    </Col>
-                    <Col md="6">
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="purchased">
-                          Purchased Product
-                        </label>
-                        <div className="form-control-wrap">
-                          <input
-                            type="text"
-                            className="form-control"
-                            {...register('purchased', { required: "This is required" })}
-                            value={formData.purchased}
-                            onChange={(e) => setFormData({ ...formData, purchased: e.target.value })} />
-                          {errors.purchased && <span className="invalid">{errors.purchased.message}</span>}
-                        </div>
-                      </div>
-                    </Col>
-                    <Col md="6">
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="total">
-                          Total Price
-                        </label>
-                        <div className="form-control-wrap">
-                          <input
-                            type="number"
-                            className="form-control"
-                            {...register('total', { required: "This is required" })}
-                            value={formData.total}
-                            onChange={(e) => setFormData({ ...formData, total: e.target.value })} />
-                          {errors.total && <span className="invalid">{errors.total.message}</span>}
-                        </div>
-                      </div>
-                    </Col>
-                    <Col md="6">
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="status">
-                          Status
-                        </label>
-                        <div className="form-control-wrap">
-                          <RSelect
-                            name="status"
-                            options={[
-                              { value: "On Hold", label: "On Hold" },
-                              { value: "Delivered", label: "Delivered" },
-                            ]}
-                            onChange={(e) => setFormData({ ...formData, status: e.value })}
-                            value={{value: formData.status, label: formData.status}}
-                          />
-                        </div>
-                      </div>
-                    </Col>
-
-                    <Col size="12">
-                      <Button color="primary" type="submit">
-                        <Icon className="plus"></Icon>
-                        <span>Add Order</span>
-                      </Button>
-                    </Col>
-                  </Row>
-                </form>
-              </div>
-            </div>
-          </ModalBody>
-        </Modal>
-
-        <Modal isOpen={view.details} toggle={() => onFormCancel()} className="modal-dialog-centered" size="lg">
-          <ModalBody>
-            <a href="#cancel" className="close">
-              {" "}
-              <Icon
-                name="cross-sm"
-                onClick={(ev) => {
-                  ev.preventDefault();
-                  onFormCancel();
-                }}
-              ></Icon>
-            </a>
-            <div className="nk-tnx-details mt-sm-3">
-              <div className="nk-modal-head mb-3">
-                <h5 className="title">Order Details</h5>
-              </div>
-              <Row className="gy-3">
-                <Col lg={6}>
-                  <span className="sub-text">Order Id</span>
-                  <span className="caption-text">{formData.orderId}</span>
-                </Col>
-                <Col lg={6}>
-                  <span className="sub-text">Status</span>
-                  <span
-                    className={`dot bg-${formData.status === "Delivered" ? "success" : "warning"} d-sm-none`}
-                  ></span>
-                  <Badge
-                    className="badge-sm badge-dot has-bg d-none d-sm-inline-flex"
-                    color={
-                      formData.status === "Delivered" ? "success" : "warning"
-                    }
-                  >
-                    {formData.status}
+      <div className="table-responsive mt-3">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Customer</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map(order => (
+              <tr key={order.id}>
+                <td>#{order.id}</td>
+                <td>{order.fullName}</td>
+                <td>${Number(order.total).toFixed(2)}</td>
+                <td>
+                  <Badge color={
+                    order.status === "payé" ? "success" :
+                    order.status === "envoyé" ? "info" :
+                    order.status === "reçu" ? "primary" : "warning"
+                  }>
+                    {order.status}
                   </Badge>
-                </Col>
-                <Col lg={6}>
-                  <span className="sub-text">Customer</span>
-                  <span className="caption-text">{formData.customer}</span>
-                </Col>
-                <Col lg={6}>
-                  <span className="sub-text">Purchased Product</span>
-                  <span className="caption-text">{formData.purchased}</span>
-                </Col>
-                <Col lg={6}>
-                  <span className="sub-text">Total Price</span>
-                  <span className="caption-text">{formData.total}</span>
-                </Col>
-              </Row>
-            </div>
-          </ModalBody>
-        </Modal>
-      </Content>
-    </React.Fragment>
+                </td>
+                <td>
+                  <Link to={`${order.id}`} >
+                  
+                  view
+                  </Link>
+                  <Button 
+                    size="sm" 
+                    color="danger" 
+                    className="ms-2"
+                    onClick={() => handleDelete(order.id)}
+                  >
+                    Delete
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal for Add/View */}
+      <Modal isOpen={isModalOpen} toggle={() => setIsModalOpen(false)}>
+        <ModalBody>
+          {modalType === "add" ? (
+            <>
+              <h4>Add New Order</h4>
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <div className="mb-3">
+                  <label className="form-label">Customer Name</label>
+                  <input 
+                    className="form-control" 
+                    {...register("fullName", { required: true })} 
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Email</label>
+                  <input 
+                    type="email" 
+                    className="form-control" 
+                    {...register("email", { required: true })} 
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Total Amount</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    className="form-control" 
+                    {...register("total", { required: true })} 
+                  />
+                </div>
+                <Button type="submit" color="primary">Submit</Button>
+              </form>
+            </>
+          ) : (
+            selectedOrder && (
+              <>
+                <h4>Order Details</h4>
+                <p><strong>ID:</strong> {selectedOrder.id}</p>
+                <p><strong>Customer:</strong> {selectedOrder.fullName}</p>
+                <p><strong>Email:</strong> {selectedOrder.email}</p>
+                
+                
+                
+                
+                <p><strong>Address:</strong> {selectedOrder.address}</p>
+                <p><strong>Phone:</strong> {selectedOrder.phone}</p> 
+                <p><strong>Status:</strong> 
+                
+                  <select 
+                    className="form-select ms-2" 
+                    style={{width: 'auto', display: 'inline-block'}}
+                    value={selectedOrder.status}
+                    onChange={(e) => updateStatus(selectedOrder.id, e.target.value)}
+                  >
+                    <option value="en attente">Pending</option>
+                    <option value="payé">Paid</option>
+                    <option value="envoyé">Shipped</option>
+                    <option value="reçu">Delivered</option>
+                  </select>
+                </p>
+                <p><strong>Date:</strong> {new Date(selectedOrder.date).toLocaleDateString()}</p>
+              </>
+            )
+          )}
+        </ModalBody>
+      </Modal>
+    </div>
   );
 };
 
-export default OrderDefault;
+export default OrderManagement;

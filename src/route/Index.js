@@ -133,8 +133,10 @@ import Register from "../pages/auth/Register";
 import ForgotPassword from "../pages/auth/ForgotPassword";
 import Success from "../pages/auth/Success";
 
+
 import Layout from "../layout/Index";
 import LayoutNoSidebar from "../layout/Index-nosidebar";
+import OrderItem from "../pages/panel/e-commerce/order/orderItem";
 
 const Router = () => {
   const location = useLocation();
@@ -182,6 +184,7 @@ const Router = () => {
             <Route path="index" element={<EcomDashboard />}></Route>
             <Route path="category" element={<EcomCategory />}></Route>
             <Route path="orders" element={<EcomOrder />}></Route>
+            <Route path="orders/:id" element={<OrderItem/>}></Route>
             <Route path="products" element={<EcomProducts />}></Route>
             <Route path="support" element={<EcomSupport />}></Route>
             <Route path="settings" element={<EcomSettings />}></Route>y

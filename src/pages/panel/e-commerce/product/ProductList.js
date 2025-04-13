@@ -35,17 +35,20 @@ import { upload } from "@testing-library/user-event/dist/cjs/utility/upload.js";
 
 const ProductList = () => {
   const [data, setData] = useState(productData);
+  const [categories, setCategories] = useState([]);
   const [sm, updateSm] = useState(false);
   const [img, setImg] = useState(null);
+  const [message, setMessage] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [formData, setFormData] = useState({
-      name: "",
-      img: null,
-      quantity: "",
-      price: 0,
-      description: 0,
-      marque: "",
-      statut: false,
-      categoryId: [],
+    name: "",
+    img: null,
+    quantity: 0,
+    price: 0,
+    description: "",
+    marque: "",
+    statut: false,
+    categoryId: "",
 
   });
   const [editId, setEditedId] = useState();
@@ -63,8 +66,19 @@ const ProductList = () => {
     try {
       const response = await axios.get('http://localhost:5000/api/product');
       console.log('Data from backend:', response.data);
-      
+
       setData(response.data); // تعيين البيانات في الحالة
+    } catch (error) {
+      console.error('There was an error with the axios request:', error);
+    }
+  };
+
+  const getCategories = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/category');
+      console.log('Data from backend:', response.data);
+
+      setCategories(response.data); // تعيين البيانات في الحالة
     } catch (error) {
       console.error('There was an error with the axios request:', error);
     }
@@ -73,13 +87,20 @@ const ProductList = () => {
   // استخدام useEffect لاستدعاء الـ API عند تحميل المكون
   useEffect(() => {
     getProducts();
+    getCategories();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      files.forEach((file) => URL.revokeObjectURL(file.preview));
+    };
+  }, [files]);
 
   // Changing state value when searching name
   useEffect(() => {
     if (onSearchText !== "") {
       const filteredObject = data.filter((item) => {
-        return item.sku.toLowerCase().includes(onSearchText.toLowerCase());
+        return item.marque.toLowerCase().includes(onSearchText.toLowerCase());
       });
       setData([...filteredObject]);
     } else {
@@ -87,7 +108,7 @@ const ProductList = () => {
     }
   }, [onSearchText]);
 
-  
+
 
 
 
@@ -102,71 +123,90 @@ const ProductList = () => {
     setFormData({
       name: "",
       img: null,
-      quantity: "",
+      quantity: 0,
       price: 0,
-      description: 0,
+      description: "",
       marque: "",
       statut: false,
-      categoryId: [],
+      categoryId: "",
     });
     reset({});
   };
 
   const onFormSubmit = async (form) => {
-    const { name, price, quantity,img, description, marque,statut,categoryId} = form;
-    let submittedData = {
-      name: name,
-      price: price,
-      quantity: quantity,
-      description: description,
-      marque: marque,
-      statut: statut,
-      categoryId: categoryId,
-      img : img
-    };
-    console.log('Submitted data:', submittedData);
+    const { name, price, quantity, description, marque, statut, categoryId } = form;
+
+    // Create a FormData object to include all fields and the image
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('price', price);
+    formData.append('quantity', quantity);
+    formData.append('description', description);
+    formData.append('marque', marque);
+    formData.append('statut', statut.value); // Assuming `statut` is an object with a `value` property
+    formData.append('categoryId', categoryId.value); // Convert categoryId array to JSON
+    if (img) {
+      formData.append('img', img); // Append the image file
+    }
+
+    // Log FormData contents
+    console.log('Submitted FormData:');
+    for (let [key, value] of formData.entries()) {
+      console.log(`${key}:`, value);
+    }
 
     try {
-      if (!img) {
-        setMessage('Please select a file first.');
-        return;
-      }
-  
-      const formData = new FormData();
-      formData.append('img', img); // "img" should match the name expected by your backend
-  
-      try {
-        const response = await axios.post('http://localhost:5000/api/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
-          onUploadProgress: (progressEvent) => {
-            const percent = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            setUploadProgress(percent);
-          }
-        });
-  
-        setMessage('File uploaded successfully!');
-      } catch (error) {
-        console.error(error);
-        setMessage('Upload failed!');
-      }
-      const response = await axios.post('http://localhost:5000/api/product', submittedData);
+      const response = await axios.post('http://localhost:5000/api/product', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percent);
+        },
+      });
+
       console.log('Product added:', response.data);
-      setData([response.data, ...data]); // إضافة البيانات الجديدة إلى الحالة
+      // setData([response.data, ...data]); // Add the new product to the state
+      getProducts();
+      setMessage('Product added successfully!');
       resetForm();
       setView({ add: false });
     } catch (error) {
       console.error('There was an error with the axios request:', error);
+      setMessage('Failed to add product. Please try again.');
     }
   };
-  const upload_file = async (e) => {
-    setImg(e.target.files[0]);
-    console.log(img)
-  
-    
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      setMessage("No file selected.");
+      return;
+    }
+
+    // Validate file type (e.g., only images)
+    const validTypes = ["image/jpeg", "image/png", "image/jpg"];
+    if (!validTypes.includes(file.type)) {
+      setMessage("Invalid file type. Please upload an image (JPEG, PNG).");
+      return;
+    }
+
+    // Validate file size (e.g., max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      setMessage("File size exceeds 5MB. Please upload a smaller file.");
+      return;
+    }
+
+    // Set the file and preview
+    setImg(file);
+    setFiles([
+      Object.assign(file, {
+        preview: URL.createObjectURL(file),
+      }),
+    ]);
+    setMessage(""); // Clear any previous error messages
   };
 
   const onEditSubmit = () => {
@@ -180,10 +220,10 @@ const ProductList = () => {
           id: editId,
           name: formData.name,
           img: files.length > 0 ? files[0].preview : item.img,
-          sku: formData.sku,
+          marque: formData.marque,
           price: formData.price,
-          salePrice: formData.salePrice,
-          stock: formData.stock,
+          quantity: formData.quantity,
+          description: formData.description,
           category: formData.category,
           fav: false,
           check: false,
@@ -203,9 +243,9 @@ const ProductList = () => {
         setFormData({
           name: item.name,
           img: item.img,
-          sku: item.sku,
+          marque: item.marque,
           price: item.price,
-          stock: item.stock,
+          description: item.description,
           category: item.category,
           fav: false,
           check: false,
@@ -383,205 +423,219 @@ const ProductList = () => {
         </BlockHead>
 
         <Block>
-  <div className="nk-tb-list is-separate is-medium mb-3">
-    <DataTableHead className="nk-tb-item">
-      <DataTableRow className="nk-tb-col-check">
-        <div className="custom-control custom-control-sm custom-checkbox notext">
-          <input
-            type="checkbox"
-            className="custom-control-input"
-            id="uid_1"
-            onChange={(e) => selectorCheck(e)}
-          />
-          <label className="custom-control-label" htmlFor="uid_1"></label>
-        </div>
-      </DataTableRow>
-      <DataTableRow size="sm">
-        <span>ID</span>
-      </DataTableRow>
-      <DataTableRow>
-        <span>Price</span>
-      </DataTableRow>
-      <DataTableRow>
-        <span>Quantity</span>
-      </DataTableRow>
-      <DataTableRow>
-        <span>Description</span>
-      </DataTableRow>
-      <DataTableRow>
-        <span>Marque</span>
-      </DataTableRow>
-      <DataTableRow>
-        <span>category</span>
-      </DataTableRow>
-      {/* <DataTableRow>
+          <div className="nk-tb-list is-separate is-medium mb-3">
+            <DataTableHead className="nk-tb-item">
+              <DataTableRow className="nk-tb-col-check">
+                <div className="custom-control custom-control-sm custom-checkbox notext">
+                  <input
+                    type="checkbox"
+                    className="custom-control-input"
+                    id="uid_1"
+                    onChange={(e) => selectorCheck(e)}
+                  />
+                  <label className="custom-control-label" htmlFor="uid_1"></label>
+                </div>
+              </DataTableRow>
+              <DataTableRow size="sm">
+                <span>ID</span>
+              </DataTableRow>
+              <DataTableRow>
+                <span>Image</span>
+              </DataTableRow>
+              <DataTableRow>
+                <span>Price</span>
+              </DataTableRow>
+              <DataTableRow>
+                <span>Quantity</span>
+              </DataTableRow>
+              <DataTableRow>
+                <span>Description</span>
+              </DataTableRow>
+              <DataTableRow>
+                <span>Marque</span>
+              </DataTableRow>
+              <DataTableRow>
+                <span>category</span>
+              </DataTableRow>
+              {/* <DataTableRow>
         <span>statut</span>
       </DataTableRow> */}
-      <DataTableRow className="nk-tb-col-tools">
-        <ul className="nk-tb-actions gx-1 my-n1">
-          <li className="me-n1">
-            <UncontrolledDropdown>
-              <DropdownToggle
-                tag="a"
-                href="#toggle"
-                onClick={(ev) => ev.preventDefault()}
-                className="dropdown-toggle btn btn-icon btn-trigger"
-              >
-                <Icon name="more-h"></Icon>
-              </DropdownToggle>
-              <DropdownMenu end>
-                <ul className="link-list-opt no-bdr">
-                  <li>
-                    <DropdownItem tag="a" href="#edit" onClick={(ev) => ev.preventDefault()}>
-                      <Icon name="edit"></Icon>
-                      <span>Edit Selected</span>
-                    </DropdownItem>
-                  </li>
-                  <li>
-                    <DropdownItem
-                      tag="a"
-                      href="#remove"
-                      onClick={(ev) => {
-                        ev.preventDefault();
-                        selectorDeleteProduct();
-                      }}
-                    >
-                      <Icon name="trash"></Icon>
-                      <span>Remove Selected</span>
-                    </DropdownItem>
-                  </li>
-                  <li>
-                    <DropdownItem tag="a" href="#stock" onClick={(ev) => ev.preventDefault()}>
-                      <Icon name="bar-c"></Icon>
-                      <span>Update Stock</span>
-                    </DropdownItem>
-                  </li>
-                  <li>
-                    <DropdownItem tag="a" href="#price" onClick={(ev) => ev.preventDefault()}>
-                      <Icon name="invest"></Icon>
-                      <span>Update Price</span>
-                    </DropdownItem>
+              <DataTableRow className="nk-tb-col-tools">
+                <ul className="nk-tb-actions gx-1 my-n1">
+                  <li className="me-n1">
+                    <UncontrolledDropdown>
+                      <DropdownToggle
+                        tag="a"
+                        href="#toggle"
+                        onClick={(ev) => ev.preventDefault()}
+                        className="dropdown-toggle btn btn-icon btn-trigger"
+                      >
+                        <Icon name="more-h"></Icon>
+                      </DropdownToggle>
+                      <DropdownMenu end>
+                        <ul className="link-list-opt no-bdr">
+                          <li>
+                            <DropdownItem tag="a" href="#edit" onClick={(ev) => ev.preventDefault()}>
+                              <Icon name="edit"></Icon>
+                              <span>Edit Selected</span>
+                            </DropdownItem>
+                          </li>
+                          <li>
+                            <DropdownItem
+                              tag="a"
+                              href="#remove"
+                              onClick={(ev) => {
+                                ev.preventDefault();
+                                selectorDeleteProduct();
+                              }}
+                            >
+                              <Icon name="trash"></Icon>
+                              <span>Remove Selected</span>
+                            </DropdownItem>
+                          </li>
+                          <li>
+                            <DropdownItem tag="a" href="#description" onClick={(ev) => ev.preventDefault()}>
+                              <Icon name="bar-c"></Icon>
+                              <span>Update Stock</span>
+                            </DropdownItem>
+                          </li>
+                          <li>
+                            <DropdownItem tag="a" href="#price" onClick={(ev) => ev.preventDefault()}>
+                              <Icon name="invest"></Icon>
+                              <span>Update Price</span>
+                            </DropdownItem>
+                          </li>
+                        </ul>
+                      </DropdownMenu>
+                    </UncontrolledDropdown>
                   </li>
                 </ul>
-              </DropdownMenu>
-            </UncontrolledDropdown>
-          </li>
-        </ul>
-      </DataTableRow>
-    </DataTableHead>
-    {data.length > 0
-      ? data.map((item) => (
-          <DataTableItem key={item.id}>
-            <DataTableRow className="nk-tb-col-check">
-              <div className="custom-control custom-control-sm custom-checkbox notext">
-                <input
-                  type="checkbox"
-                  className="custom-control-input"
-                  defaultChecked={item.check}
-                  id={item.id + "uid1"}
-                  key={Math.random()}
-                  onChange={(e) => onSelectChange(e, item.id)}
-                />
-                <label className="custom-control-label" htmlFor={item.id + "uid1"}></label>
+              </DataTableRow>
+            </DataTableHead>
+            {data.length > 0
+              ? data.map((item) => (
+                <DataTableItem key={item.id}>
+                  <DataTableRow className="nk-tb-col-check">
+                    <div className="custom-control custom-control-sm custom-checkbox notext">
+                      <input
+                        type="checkbox"
+                        className="custom-control-input"
+                        defaultChecked={item.check}
+                        id={item.id + "uid1"}
+                        key={Math.random()}
+                        onChange={(e) => onSelectChange(e, item.id)}
+                      />
+                      <label className="custom-control-label" htmlFor={item.id + "uid1"}></label>
+                    </div>
+                  </DataTableRow>
+                  <DataTableRow size="sm">
+                    <span className="tb-product">
+                      <span className="title">{item.id}</span>
+                    </span>
+                  </DataTableRow>
+                  <DataTableRow>
+                  <img
+  src={`http://localhost:5000/upload/${item.image}`} // Replace with your backend's base URL
+  alt="Product"
+  className="img-responsive img-thumbnail"
+  style={{ width: "50px" }}
+/>
+                  </DataTableRow>
+                  <DataTableRow>
+                    <span className="tb-sub">$ {item.price}</span>
+                  </DataTableRow>
+                  <DataTableRow>
+                    <span className="tb-sub">{item.quantity}</span>
+                  </DataTableRow>
+                  <DataTableRow>
+                    <span className="tb-sub">{item.description}</span>
+                  </DataTableRow>
+                  <DataTableRow>
+                    <span className="tb-sub">{item.marque}</span>
+                  </DataTableRow>
+                  <DataTableRow>
+                  <span className="tb-sub">{item.category ? item.category.name : "N/A"}</span>
+                  </DataTableRow>
+                  <DataTableRow className="nk-tb-col-tools">
+                    <ul className="nk-tb-actions gx-1 my-n1">
+                      <li className="me-n1">
+                        <UncontrolledDropdown>
+                          <DropdownToggle
+                            tag="a"
+                            href="#more"
+                            onClick={(ev) => ev.preventDefault()}
+                            className="dropdown-toggle btn btn-icon btn-trigger"
+                          >
+                            <Icon name="more-h"></Icon>
+                          </DropdownToggle>
+                          <DropdownMenu end>
+                            <ul className="link-list-opt no-bdr">
+                              <li>
+                                <DropdownItem
+                                  tag="a"
+                                  href="#edit"
+                                  onClick={(ev) => {
+                                    ev.preventDefault();
+                                    onEditClick(item.id);
+                                    toggle("edit");
+                                  }}
+                                >
+                                  <Icon name="edit"></Icon>
+                                  <span>Edit Product</span>
+                                </DropdownItem>
+                              </li>
+                              <li>
+                                <DropdownItem
+                                  tag="a"
+                                  href="#view"
+                                  onClick={(ev) => {
+                                    ev.preventDefault();
+                                    onEditClick(item.id);
+                                    toggle("details");
+                                  }}
+                                >
+                                  <Icon name="eye"></Icon>
+                                  <span>View Product</span>
+                                </DropdownItem>
+                              </li>
+                              <li>
+                                <DropdownItem
+                                  tag="a"
+                                  href="#remove"
+                                  onClick={(ev) => {
+                                    ev.preventDefault();
+                                    deleteProduct(item.id);
+                                  }}
+                                >
+                                  <Icon name="trash"></Icon>
+                                  <span>Remove Product</span>
+                                </DropdownItem>
+                              </li>
+                            </ul>
+                          </DropdownMenu>
+                        </UncontrolledDropdown>
+                      </li>
+                    </ul>
+                  </DataTableRow>
+                </DataTableItem>
+              ))
+              : null}
+          </div>
+          <PreviewAltCard>
+            {data.length > 0 ? (
+              <PaginationComponent
+                itemPerPage={itemPerPage}
+                totalItems={data.length}
+                paginate={paginate}
+                currentPage={currentPage}
+              />
+            ) : (
+              <div className="text-center">
+                <span className="text-silent">No products found</span>
               </div>
-            </DataTableRow>
-            <DataTableRow size="sm">
-              <span className="tb-product">
-                <span className="title">{item.id}</span>
-              </span>
-            </DataTableRow>
-            <DataTableRow>
-              <span className="tb-sub">$ {item.price}</span>
-            </DataTableRow>
-            <DataTableRow>
-              <span className="tb-sub">{item.quantity}</span>
-            </DataTableRow>
-            <DataTableRow>
-              <span className="tb-sub">{item.description}</span>
-            </DataTableRow>
-            <DataTableRow>
-              <span className="tb-sub">{item.marque}</span>
-            </DataTableRow>
-            <DataTableRow className="nk-tb-col-tools">
-              <ul className="nk-tb-actions gx-1 my-n1">
-                <li className="me-n1">
-                  <UncontrolledDropdown>
-                    <DropdownToggle
-                      tag="a"
-                      href="#more"
-                      onClick={(ev) => ev.preventDefault()}
-                      className="dropdown-toggle btn btn-icon btn-trigger"
-                    >
-                      <Icon name="more-h"></Icon>
-                    </DropdownToggle>
-                    <DropdownMenu end>
-                      <ul className="link-list-opt no-bdr">
-                        <li>
-                          <DropdownItem
-                            tag="a"
-                            href="#edit"
-                            onClick={(ev) => {
-                              ev.preventDefault();
-                              onEditClick(item.id);
-                              toggle("edit");
-                            }}
-                          >
-                            <Icon name="edit"></Icon>
-                            <span>Edit Product</span>
-                          </DropdownItem>
-                        </li>
-                        <li>
-                          <DropdownItem
-                            tag="a"
-                            href="#view"
-                            onClick={(ev) => {
-                              ev.preventDefault();
-                              onEditClick(item.id);
-                              toggle("details");
-                            }}
-                          >
-                            <Icon name="eye"></Icon>
-                            <span>View Product</span>
-                          </DropdownItem>
-                        </li>
-                        <li>
-                          <DropdownItem
-                            tag="a"
-                            href="#remove"
-                            onClick={(ev) => {
-                              ev.preventDefault();
-                              deleteProduct(item.id);
-                            }}
-                          >
-                            <Icon name="trash"></Icon>
-                            <span>Remove Product</span>
-                          </DropdownItem>
-                        </li>
-                      </ul>
-                    </DropdownMenu>
-                  </UncontrolledDropdown>
-                </li>
-              </ul>
-            </DataTableRow>
-          </DataTableItem>
-        ))
-      : null}
-  </div>
-  <PreviewAltCard>
-    {data.length > 0 ? (
-      <PaginationComponent
-        itemPerPage={itemPerPage}
-        totalItems={data.length}
-        paginate={paginate}
-        currentPage={currentPage}
-      />
-    ) : (
-      <div className="text-center">
-        <span className="text-silent">No products found</span>
-      </div>
-    )}
-  </PreviewAltCard>
-</Block>
+            )}
+          </PreviewAltCard>
+        </Block>
         <Modal isOpen={view.edit} toggle={() => onFormCancel()} className="modal-dialog-centered" size="lg">
           <ModalBody>
             <a href="#cancel" className="close">
@@ -628,7 +682,7 @@ const ProductList = () => {
                             {...register('price', { required: "This is required" })}
                             className="form-control"
                             value={formData.price}
-                            onChange={(e) => setFormData({ ...formData, price: e.target.value })}/>
+                            onChange={(e) => setFormData({ ...formData, price: e.target.value })} />
                           {errors.price && <span className="invalid">{errors.price.message}</span>}
                         </div>
                       </div>
@@ -642,26 +696,26 @@ const ProductList = () => {
                           <input
                             type="number"
                             className="form-control"
-                            {...register('salePrice')}
-                            value={formData.salePrice} 
-                            onChange={(e) => setFormData({ ...formData, salePrice: e.target.value })}/>
-                          {errors.salePrice && <span className="invalid">{errors.salePrice.message}</span>}
+                            {...register('quantity')}
+                            value={formData.quantity}
+                            onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} />
+                          {errors.quantity && <span className="invalid">{errors.quantity.message}</span>}
                         </div>
                       </div>
                     </Col>
                     <Col md="6">
                       <div className="form-group">
-                        <label className="form-label" htmlFor="stock">
+                        <label className="form-label" htmlFor="description">
                           Stock
                         </label>
                         <div className="form-control-wrap">
                           <input
                             type="number"
                             className="form-control"
-                            {...register('stock', { required: "This is required" })}
-                            value={formData.stock}
-                            onChange={(e) => setFormData({ ...formData, stock: e.target.value })} />
-                          {errors.stock && <span className="invalid">{errors.stock.message}</span>}
+                            {...register('description', { required: "This is required" })}
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+                          {errors.description && <span className="invalid">{errors.description.message}</span>}
                         </div>
                       </div>
                     </Col>
@@ -674,10 +728,10 @@ const ProductList = () => {
                           <input
                             type="text"
                             className="form-control"
-                            {...register('sku', { required: "This is required" })}
-                            value={formData.sku}
-                            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}/>
-                          {errors.sku && <span className="invalid">{errors.sku.message}</span>}
+                            {...register('marque', { required: "This is required" })}
+                            value={formData.marque}
+                            onChange={(e) => setFormData({ ...formData, marque: e.target.value })} />
+                          {errors.marque && <span className="invalid">{errors.marque.message}</span>}
                         </div>
                       </div>
                     </Col>
@@ -692,7 +746,7 @@ const ProductList = () => {
                             options={categoryOptions}
                             value={formData.category}
                             onChange={(value) => setFormData({ ...formData, category: value })}
-                            //ref={register({ required: "This is required" })}
+                          //ref={register({ required: "This is required" })}
                           />
                           {errors.category && <span className="invalid">{errors.category.message}</span>}
                         </div>
@@ -761,7 +815,7 @@ const ProductList = () => {
             </a>
             <div className="nk-modal-head">
               <h4 className="nk-modal-title title">
-                Product <small className="text-primary">#{formData.sku}</small>
+                Product <small className="text-primary">#{formData.marque}</small>
               </h4>
               <img src={formData.img} alt="" />
             </div>
@@ -778,16 +832,12 @@ const ProductList = () => {
                 <Col lg={6}>
                   <span className="sub-text">Product Category</span>
                   <span className="caption-text">
-                    {formData.categoryId.map((item, index) => (
-                      <Badge key={index} className="me-1" color="secondary">
-                        {item.value}
-                      </Badge>
-                    ))}
+                    {formData.categoryId}
                   </span>
                 </Col>
                 <Col lg={6}>
                   <span className="sub-text">Stock</span>
-                  <span className="caption-text"> {formData.stock}</span>
+                  <span className="caption-text"> {formData.description}</span>
                 </Col>
               </Row>
             </div>
@@ -795,9 +845,8 @@ const ProductList = () => {
         </Modal>
 
         <SimpleBar
-          className={`nk-add-product toggle-slide toggle-slide-right toggle-screen-any ${
-            view.add ? "content-active" : ""
-          }`}
+          className={`nk-add-product toggle-slide toggle-slide-right toggle-screen-any ${view.add ? "content-active" : ""
+            }`}
         >
           <BlockHead>
             <BlockHeadContent>
@@ -822,8 +871,8 @@ const ProductList = () => {
                         {...register('name', {
                           required: "This field is required",
                         })}
-                        value={formData.name} 
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}/>
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                       {errors.name && <span className="invalid">{errors.name.message}</span>}
                     </div>
                   </div>
@@ -831,15 +880,15 @@ const ProductList = () => {
                 <Col md="6">
                   <div className="form-group">
                     <label className="form-label" htmlFor="regular-price">
-                    Price
+                      Price
                     </label>
                     <div className="form-control-wrap">
                       <input
                         type="number"
                         {...register('price', { required: "This is required" })}
                         className="form-control"
-                        value={formData.price} 
-                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}/>
+                        value={formData.price}
+                        onChange={(e) => setFormData({ ...formData, price: e.target.value })} />
                       {errors.price && <span className="invalid">{errors.price.message}</span>}
                     </div>
                   </div>
@@ -847,53 +896,53 @@ const ProductList = () => {
                 <Col md="6">
                   <div className="form-group">
                     <label className="form-label" htmlFor="sale-price">
-                    Quantity
+                      Quantity
                     </label>
                     <div className="form-control-wrap">
                       <input
                         type="number"
                         className="form-control"
-                        {...register('salePrice')}
-                        value={formData.salePrice} 
-                        onChange={(e) => setFormData({ ...formData, salePrice: e.target.value })}/>
-                      {errors.salePrice && <span className="invalid">{errors.salePrice.message}</span>}
+                        {...register('quantity')}
+                        value={formData.quantity}
+                        onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} />
+                      {errors.quantity && <span className="invalid">{errors.quantity.message}</span>}
                     </div>
                   </div>
                 </Col>
                 <Col md="6">
                   <div className="form-group">
-                    <label className="form-label" htmlFor="stock">
-                    Description
+                    <label className="form-label" htmlFor="description">
+                      Description
                     </label>
                     <div className="form-control-wrap">
                       <input
-                        type="number"
+                        type="text"
                         className="form-control"
-                        {...register('stock', { required: "This is required" })}
-                        value={formData.stock}
-                        onChange={(e) => setFormData({ ...formData, stock: e.target.value })} />
-                      {errors.stock && <span className="invalid">{errors.stock.message}</span>}
+                        {...register('description', { required: "This is required" })}
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+                      {errors.description && <span className="invalid">{errors.description.message}</span>}
                     </div>
                   </div>
                 </Col>
                 <Col md="6">
                   <div className="form-group">
                     <label className="form-label" htmlFor="SKU">
-                    Marque
+                      Marque
                     </label>
                     <div className="form-control-wrap">
                       <input
                         type="text"
                         className="form-control"
-                        {...register('sku', { required: "This is required" })}
-                        value={formData.sku} 
-                        onChange={(e) => setFormData({ ...formData, sku: e.target.value })}/>
-                      {errors.sku && <span className="invalid">{errors.sku.message}</span>}
+                        {...register('marque', { required: "This is required" })}
+                        value={formData.marque}
+                        onChange={(e) => setFormData({ ...formData, marque: e.target.value })} />
+                      {errors.marque && <span className="invalid">{errors.marque.message}</span>}
                     </div>
                   </div>
                 </Col>
-                
-                
+
+
                 <Col size="12">
                   <div className="form-group">
                     <label className="form-label" htmlFor="category">
@@ -902,58 +951,62 @@ const ProductList = () => {
                     <div className="form-control-wrap">
                       <RSelect
                         name="categoryId"
-                        isMulti
-                        options={categoryOptions}
+                        options={categories.map((category) => ({
+                          value: category.id, // Assuming `id` is the unique identifier for each category
+                          label: category.name, // Assuming `name` is the display name for each category
+                        }))}
                         onChange={(value) => setFormData({ ...formData, categoryId: value })}
                         value={formData.categoryId}
-                        //ref={register({ required: "This is required" })}
                       />
                       {errors.categoryId && <span className="invalid">{errors.categoryId.message}</span>}
                     </div>
                   </div>
                 </Col>
                 <Col size="14">
-  <div className="form-group">
-    <label className="form-label" htmlFor="statut">
-      Statut
-    </label>
-    <div className="form-control-wrap">
-      <RSelect
-        name="statut"
-        options={[
-          { value: 'public', label: 'Public' },
-          { value: 'prive', label: 'Prive' }
-        ]}
-        onChange={(value) => setFormData({ ...formData, statut: value })}
-        value={formData.statut}
-      />
-      {errors.statut && <span className="invalid">{errors.statut.message}</span>}
-    </div>
-  </div>
-</Col>
-                
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="statut">
+                      Statut
+                    </label>
+                    <div className="form-control-wrap">
+                      <RSelect
+                        name="statut"
+                        options={[
+                          { value: 'public', label: 'Public' },
+                          { value: 'prive', label: 'Prive' }
+                        ]}
+                        onChange={(value) => setFormData({ ...formData, statut: value })}
+                        value={formData.statut}
+                      />
+                      {errors.statut && <span className="invalid">{errors.statut.message}</span>}
+                    </div>
+                  </div>
+                </Col>
+
                 <Col size="12">
-                <input type="file" onChange={upload_file}/>
-                  {/* <Dropzone onDrop={(acceptedFiles) => handleDropChange(acceptedFiles)}>
-                    {({ getRootProps, getInputProps }) => (
-                      <section>
-                        <div {...getRootProps()} className="dropzone upload-zone small bg-lighter my-2 dz-clickable">
-                          <input {...getInputProps()} />
-                          {files.length === 0 && <p>Drag 'n' drop some files here, or click to select files</p>}
-                          {files.map((file) => (
-                            <div
-                              key={file.name}
-                              className="dz-preview dz-processing dz-image-preview dz-error dz-complete"
-                            >
-                              <div className="dz-image">
-                                <img src={file.preview} alt="preview" />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </section>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="product-image">
+                      Product Image
+                    </label>
+                    <div className="form-control-wrap">
+                      <input
+                        type="file"
+                        className="form-control"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                      />
+                      {message && <span className="text-danger">{message}</span>}
+                    </div>
+                    {files.length > 0 && (
+                      <div className="mt-3">
+                        <p>Preview:</p>
+                        <img
+                          src={files[0].preview}
+                          alt="Preview"
+                          style={{ maxWidth: "200px", maxHeight: "200px" }}
+                        />
+                      </div>
                     )}
-                  </Dropzone> */}
+                  </div>
                 </Col>
 
                 <Col size="12">
