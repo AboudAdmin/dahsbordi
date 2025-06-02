@@ -281,9 +281,9 @@ const OrderItem = () => {
                               </div>
                             </div>
                           </td>
-                          <td>{item.price.toFixed(2)} ر.س</td>
+                          <td>{item.price.toFixed(2)} D</td>
                           <td>{item.quantity}</td>
-                          <td>{(item.price * item.quantity).toFixed(2)} ر.س</td>
+                          <td>{(item.price * item.quantity).toFixed(2)} D</td>
                         </tr>
                       ))}
                     </tbody>
@@ -291,22 +291,22 @@ const OrderItem = () => {
                       <tr>
                         <td colSpan="2"></td>
                         <td className="text-end">Subtotal</td>
-                        <td>{subtotal.toFixed(2)} ر.س</td>
+                        <td>{subtotal.toFixed(2)} D</td>
                       </tr>
                       <tr>
                         <td colSpan="2"></td>
                         <td className="text-end">Tax (10%)</td>
-                        <td>{tax.toFixed(2)} ر.س</td>
+                        <td>{tax.toFixed(2)} D</td>
                       </tr>
                       <tr>
                         <td colSpan="2"></td>
                         <td className="text-end">Shipping</td>
-                        <td>{shipping.toFixed(2)} ر.س</td>
+                        <td>{shipping.toFixed(2)} D</td>
                       </tr>
                       <tr>
                         <td colSpan="2"></td>
                         <td className="text-end fw-bold">Grand Total</td>
-                        <td className="fw-bold">{total.toFixed(2)} ر.س</td>
+                        <td className="fw-bold">{total.toFixed(2)} D</td>
                       </tr>
                     </tfoot>
                   </table>
