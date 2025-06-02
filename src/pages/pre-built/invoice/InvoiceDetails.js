@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import {
   BlockHead,
   BlockTitle,
@@ -12,191 +13,253 @@ import {
 import Content from "../../../layout/content/Content";
 import Head from "../../../layout/head/Head";
 import LogoDark from "../../../images/logo-dark.png";
-import { invoiceData } from "./Invoice";
 import { useParams, Link } from "react-router-dom";
 
 const InvoiceDetails = () => {
-  const [data] = useState(invoiceData);
-  const [user, setUser] = useState();
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  let { invoiceId } = useParams();
+  let { orderId } = useParams();
 
   useEffect(() => {
-    const id = invoiceId;
-    if (id !== undefined || null || "") {
-      let spUser = data.find((item) => item.id === Number(id));
-      setUser(spUser);
-    } else {
-      setUser(data[0]);
+    const fetchOrder = async () => {
+      try {
+        setLoading(true);
+        // Fetch order data from your API endpoint
+        const response = await axios.get(`http://localhost:5000/api/orders/${orderId}`);
+        
+        if (!response.data) {
+          throw new Error("Order not found");
+        }
+        
+        setOrder(response.data);
+        setError(null);
+      } catch (err) {
+        setError(err.response?.data?.message || err.message || "Failed to fetch order details");
+        console.error("Error fetching order:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (orderId) {
+      fetchOrder();
     }
-  }, [invoiceId, data]);
+  }, [orderId]);
+
+  if (loading) {
+    return (
+      <Content>
+        <Block>
+          <div className="text-center">Loading order details...</div>
+        </Block>
+      </Content>
+    );
+  }
+
+  if (error) {
+    return (
+      <Content>
+        <Block>
+          <div className="alert alert-danger">{error}</div>
+          <Link to={`${process.env.PUBLIC_URL}/orders`}>
+            <Button color="primary">
+              <Icon name="arrow-left"></Icon>
+              <span>Back to Orders</span>
+            </Button>
+          </Link>
+        </Block>
+      </Content>
+    );
+  }
+
+  if (!order) {
+    return (
+      <Content>
+        <Block>
+          <div className="text-center">Order not found</div>
+        </Block>
+      </Content>
+    );
+  }
+
+  // Calculate totals from order items
+  const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const tax = subtotal * 0.1; // 10% tax as in your CartSection
+  const shipping = order.shippingFee || 0; // Use shipping fee from order if available
+  const total = subtotal + tax + shipping;
 
   return (
     <React.Fragment>
-      <Head title="Invoice Detail"></Head>
-      {user && (
-        <Content>
-          <BlockHead>
-            <BlockBetween className="g-3">
-              <BlockHeadContent>
-                <BlockTitle>
-                  Invoice <strong className="text-primary small">#{user.orderId}</strong>
-                </BlockTitle>
-                <BlockDes className="text-soft">
-                  <ul className="list-inline">
-                    <li>
-                      Created At: <span className="text-base">{user.date}</span>
-                    </li>
-                  </ul>
-                </BlockDes>
-              </BlockHeadContent>
-              <BlockHeadContent>
-                <Link to={`${process.env.PUBLIC_URL}/invoice-list`}>
-                  <Button color="light" outline className="bg-white d-none d-sm-inline-flex">
-                    <Icon name="arrow-left"></Icon>
-                    <span>Back</span>
-                  </Button>
-                </Link>
-                <Link to={`${process.env.PUBLIC_URL}/invoice-list`}>
-                  <Button color="light" outline className="btn-icon bg-white d-inline-flex d-sm-none">
-                    <Icon name="arrow-left"></Icon>
-                  </Button>
-                </Link>
-              </BlockHeadContent>
-            </BlockBetween>
-          </BlockHead>
+      <Head title="Order Invoice"></Head>
+      <Content>
+        <BlockHead>
+          <BlockBetween className="g-3">
+            <BlockHeadContent>
+              <BlockTitle>
+                Order Invoice <strong className="text-primary small">#{order.orderId || order.id}</strong>
+              </BlockTitle>
+              <BlockDes className="text-soft">
+                <ul className="list-inline">
+                  <li>
+                    Order Date: <span className="text-base">
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </span>
+                  </li>
+                  <li>
+                    Status: <span className="text-base text-capitalize">{order.status || 'pending'}</span>
+                  </li>
+                </ul>
+              </BlockDes>
+            </BlockHeadContent>
+            <BlockHeadContent>
+              <Link to={`${process.env.PUBLIC_URL}/orders`}>
+                <Button color="light" outline className="bg-white d-none d-sm-inline-flex">
+                  <Icon name="arrow-left"></Icon>
+                  <span>Back</span>
+                </Button>
+              </Link>
+              <Link to={`${process.env.PUBLIC_URL}/orders`}>
+                <Button color="light" outline className="btn-icon bg-white d-inline-flex d-sm-none">
+                  <Icon name="arrow-left"></Icon>
+                </Button>
+              </Link>
+            </BlockHeadContent>
+          </BlockBetween>
+        </BlockHead>
 
-          <Block>
-            <div className="invoice">
-              <div className="invoice-action">
-                <Link to={`${process.env.PUBLIC_URL}/invoice-print/${user.id}`} target="_blank">
-                  <Button size="lg" color="primary" outline className="btn-icon btn-white btn-dim">
-                    <Icon name="printer-fill"></Icon>
-                  </Button>
-                </Link>
+        <Block>
+          <div className="invoice">
+            <div className="invoice-action">
+              <Button 
+                size="lg" 
+                color="primary" 
+                outline 
+                className="btn-icon btn-white btn-dim"
+                onClick={() => window.print()}
+              >
+                <Icon name="printer-fill"></Icon>
+              </Button>
+            </div>
+            <div className="invoice-wrap">
+              <div className="invoice-brand text-center">
+                <img src={LogoDark} alt="" />
               </div>
-              <div className="invoice-wrap">
-                <div className="invoice-brand text-center">
-                  <img src={LogoDark} alt="" />
-                </div>
 
-                <div className="invoice-head">
-                  <div className="invoice-contact">
-                    <span className="overline-title">Invoice To</span>
-                    <div className="invoice-contact-info">
-                      <h4 className="title">{user.name}</h4>
-                      <ul className="list-plain">
-                        <li>
-                          <Icon name="map-pin-fill"></Icon>
-                          <span>
-                            House #65, 4328 Marion Street
-                            <br />
-                            Newbury, VT 05051
-                          </span>
-                        </li>
-                        <li>
-                          <Icon name="call-fill"></Icon>
-                          <span>{user.phone}</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                  <div className="invoice-desc">
-                    <h3 className="title">Invoice</h3>
+              <div className="invoice-head">
+                <div className="invoice-contact">
+                  <span className="overline-title">Invoice To</span>
+                  <div className="invoice-contact-info">
+                    <h4 className="title">{order.fullName}</h4>
                     <ul className="list-plain">
-                      <li className="invoice-id">
-                        <span>Invoice ID</span>:<span>{user.orderId}</span>
+                      <li>
+                        <Icon name="map-pin-fill"></Icon>
+                        <span>
+                          {order.address}, {order.city}, {order.country}, {order.postalCode}
+                        </span>
                       </li>
-                      <li className="invoice-date">
-                        <span>Date</span>:<span>{user.date.split(",")[0]}</span>
+                      <li>
+                        <Icon name="call-fill"></Icon>
+                        <span>{order.phone}</span>
+                      </li>
+                      <li>
+                        <Icon name="mail-fill"></Icon>
+                        <span>{order.email}</span>
                       </li>
                     </ul>
                   </div>
                 </div>
+                <div className="invoice-desc">
+                  <h3 className="title">Order Invoice</h3>
+                  <ul className="list-plain">
+                    <li className="invoice-id">
+                      <span>Order ID</span>:<span>{order.orderId || order.id}</span>
+                    </li>
+                    <li className="invoice-date">
+                      <span>Date</span>:<span>{new Date(order.createdAt).toLocaleDateString()}</span>
+                    </li>
+                    <li className="invoice-payment">
+                      <span>Payment</span>:<span>
+                        {order.paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 
+                         order.paymentMethod === 'check' ? 'Check' : 'Cash on Delivery'}
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
 
-                <div className="invoice-bills">
-                  <div className="table-responsive">
-                    <table className="table table-striped">
-                      <thead>
-                        <tr>
-                          <th className="w-150px">Item ID</th>
-                          <th className="w-60">Description</th>
-                          <th>Price</th>
-                          <th>Qty</th>
-                          <th>Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td>24108054</td>
-                          <td>Dashlite - Conceptual App Dashboard - Regular License</td>
-                          <td>${user.invoiceItem1}</td>
-                          <td>1</td>
-                          <td>${user.invoiceItem1}</td>
-                        </tr>
-                        <tr>
-                          <td>24108054</td>
-                          <td>24 months premium support</td>
-                          <td>${user.invoiceItem2}</td>
-                          <td>1</td>
-                          <td>${user.invoiceItem2}</td>
-                        </tr>
-                        <tr>
-                          <td>23604094</td>
-                          <td>Invest Management Dashboard - Regular License</td>
-                          <td>${user.invoiceItem3}</td>
-                          <td>1</td>
-                          <td>${user.invoiceItem3}</td>
-                        </tr>
-                        <tr>
-                          <td>23604094</td>
-                          <td>6 months premium support</td>
-                          <td>${user.invoiceItem4}</td>
-                          <td>1</td>
-                          <td>${user.invoiceItem4}</td>
-                        </tr>
-                      </tbody>
-                      <tfoot>
-                        <tr>
-                          <td colSpan="2"></td>
-                          <td colSpan="2">Subtotal</td>
+              <div className="invoice-bills">
+                <div className="table-responsive">
+                  <table className="table table-striped">
+                    <thead>
+                      <tr>
+                        <th>Item</th>
+                        <th>Price</th>
+                        <th>Qty</th>
+                        <th>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {order.items.map((item, index) => (
+                        <tr key={index}>
                           <td>
-                            $
-                            {Number(user.invoiceItem1) +
-                              Number(user.invoiceItem2) +
-                              Number(user.invoiceItem3) +
-                              Number(user.invoiceItem4) +
-                              ".00"}
+                            <div className="d-flex align-items-center">
+                              {item.image && (
+                                <img 
+                                  src={`http://localhost:5000/upload/${item.image}`} 
+                                  alt={item.name}
+                                  style={{ width: '50px', height: '50px', objectFit: 'cover', marginRight: '15px' }}
+                                />
+                              )}
+                              <div>
+                                <h6 className="mb-0">{item.name}</h6>
+                                {item.id && <small className="text-muted">ID: {item.id}</small>}
+                              </div>
+                            </div>
                           </td>
+                          <td>{item.price.toFixed(2)} D
+</td>
+                          <td>{item.quantity}</td>
+                          <td>{(item.price * item.quantity).toFixed(2)} D
+</td>
                         </tr>
-                        <tr>
-                          <td colSpan="2"></td>
-                          <td colSpan="2">Processing fee</td>
-                          <td>$10.00</td>
-                        </tr>
-                        <tr>
-                          <td colSpan="2"></td>
-                          <td colSpan="2">TAX</td>
-                          <td>$50.00</td>
-                        </tr>
-                        <tr>
-                          <td colSpan="2"></td>
-                          <td colSpan="2">Grand Total</td>
-                          <td>${user.totalAmount}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                    <div className="nk-notes ff-italic fs-12px text-soft">
-                      Invoice was created on a computer and is valid without the signature and seal.
-                    </div>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colSpan="3" className="text-end">Subtotal</td>
+                        <td>{subtotal.toFixed(2)} D
+</td>
+                      </tr>
+                      <tr>
+                        <td colSpan="3" className="text-end">Tax (10%)</td>
+                        <td>{tax.toFixed(2)} D
+</td>
+                      </tr>
+                      <tr>
+                        <td colSpan="3" className="text-end">Shipping</td>
+                        <td>{shipping.toFixed(2)} D
+</td>
+                      </tr>
+                      <tr>
+                        <td colSpan="3" className="text-end fw-bold">Grand Total</td>
+                        <td className="fw-bold">{total.toFixed(2)} D
+</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                  <div className="nk-notes ff-italic fs-12px text-soft">
+                    Invoice was created on a computer and is valid without the signature and seal.
                   </div>
                 </div>
               </div>
             </div>
-          </Block>
-        </Content>
-      )}
+          </div>
+        </Block>
+      </Content>
     </React.Fragment>
   );
 };
+
 export default InvoiceDetails;
